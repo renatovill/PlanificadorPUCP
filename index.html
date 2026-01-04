@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Planificador PUCP 2026</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: Inter, sans-serif; background-color: #F3F4F6; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <script type="text/babel">
+        const { useState } = React;
+        
+        const App = () => {
+            const [view, setView] = useState('campaigns');
+            
+            return (
+                <div className="flex h-screen">
+                    <aside className="w-72 bg-white border-r border-gray-200 p-6">
+                        <h1 className="text-xl font-bold text-indigo-700 mb-8">Planificador PUCP</h1>
+                        <nav className="space-y-2">
+                            <button 
+                                onClick={() => setView('campaigns')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-all ${view === 'campaigns' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
+                            >
+                                Campañas
+                            </button>
+                            <button 
+                                onClick={() => setView('events')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-all ${view === 'events' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
+                            >
+                                Eventos
+                            </button>
+                            <button 
+                                onClick={() => setView('posts')}
+                                className={`w-full text-left px-4 py-2 rounded-lg transition-all ${view === 'posts' ? 'bg-indigo-50 text-indigo-700' : 'text-gray-600'}`}
+                            >
+                                Publicaciones
+                            </button>
+                        </nav>
+                    </aside>
+                    <main className="flex-1 p-8 overflow-y-auto">
+                        <div className="max-w-6xl mx-auto">
+                            <h2 className="text-3xl font-bold text-gray-800 mb-4">
+                                {view === 'campaigns' && 'Calendario de Campañas'}
+                                {view === 'events' && 'Calendario de Eventos'}
+                                {view === 'posts' && 'Galería de Publicaciones'}
+                            </h2>
+                            <p className="text-gray-600 mb-8">Bienvenido al Planificador PUCP 2026. Selecciona una vista en el menú lateral.</p>
+                            <div className="bg-white rounded-lg shadow-md p-8 text-center">
+                                <p className="text-gray-500">Contenido del Planificador</p>
+                                <p className="text-gray-400 text-sm mt-2">Aplicación web para gestión de planificación de PUCP</p>
+                            </div>
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+        
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
