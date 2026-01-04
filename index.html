@@ -1,1609 +1,843 @@
 <!DOCTYPE html>
-
 <html lang="es">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
     <title>Planificador PUCP 2026</title>
-
     
-
     <!-- React & DOM -->
-
     <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
     
-
     <!-- Tailwind CSS -->
-
     <script src="https://cdn.tailwindcss.com"></script>
 
-
-
     <style>
-
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-
         
-
         body { font-family: 'Inter', sans-serif; background-color: #F3F4F6; }
-
         
-
         /* Custom Scrollbar */
-
         ::-webkit-scrollbar { width: 6px; height: 6px; }
-
         ::-webkit-scrollbar-track { background: #f1f1f1; }
-
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
-
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-
-
         .glass-panel {
-
             background: rgba(255, 255, 255, 0.95);
-
             backdrop-filter: blur(10px);
-
         }
-
         
-
         .calendar-cell {
-
             min-height: 120px;
-
             transition: background-color 0.2s ease;
-
         }
-
         .calendar-cell:hover {
-
             background-color: #F8FAFC;
-
         }
-
-
 
         .event-strip {
-
             transition: all 0.2s;
-
         }
-
         .event-strip:hover {
-
             filter: brightness(0.95);
-
             transform: scaleY(1.05);
-
             z-index: 10;
-
         }
-
         
-
         .fade-in { animation: fadeIn 0.3s ease-in-out; }
-
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-
-
         /* Checkbox personalizado */
-
         .custom-checkbox:checked {
-
             background-color: #4f46e5;
-
             border-color: #4f46e5;
-
         }
-
     </style>
-
 </head>
-
 <body>
-
     <div id="root"></div>
 
-
-
     <script type="text/babel">
-
         const { useState, useEffect, useMemo } = React;
-
         
-
         // --- DEFINICIÓN DE ICONOS (SVG INLINE) ---
-
         const Icon = ({ children, size = 24, className = "" }) => (
-
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-
                 {children}
-
             </svg>
-
         );
 
-
-
         // Iconos Generales
-
         const CalendarIcon = (props) => <Icon {...props}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></Icon>;
-
         const ImageIcon = (props) => <Icon {...props}><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></Icon>;
-
         const LayoutGrid = (props) => <Icon {...props}><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></Icon>;
-
         const Plus = (props) => <Icon {...props}><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></Icon>;
-
         const ChevronLeft = (props) => <Icon {...props}><polyline points="15 18 9 12 15 6"></polyline></Icon>;
-
         const ChevronRight = (props) => <Icon {...props}><polyline points="9 18 15 12 9 6"></polyline></Icon>;
-
         const Search = (props) => <Icon {...props}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></Icon>;
-
         const ExternalLink = (props) => <Icon {...props}><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></Icon>;
-
         const XIcon = (props) => <Icon {...props}><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></Icon>;
-
         const Clock = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></Icon>;
-
         const Edit = (props) => <Icon {...props}><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></Icon>;
-
         const LinkIcon = (props) => <Icon {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></Icon>;
-
         const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></Icon>;
-
         const AlertTriangle = (props) => <Icon {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></Icon>;
-
         
-
         // Iconos de Sección
-
         const Megaphone = (props) => <Icon {...props}><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></Icon>;
-
         const Hash = (props) => <Icon {...props}><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></Icon>;
-
         const PartyPopper = (props) => <Icon {...props}><path d="M5.8 11.3 2 22l10.7-3.79"></path><path d="M4 3h.01"></path><path d="M22 8h.01"></path><path d="M15 2h.01"></path><path d="M22 20h.01"></path><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"></path><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17"></path><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7"></path></Icon>;
-
         const GraduationCap = (props) => <Icon {...props}><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></Icon>;
-
         const FileText = (props) => <Icon {...props}><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></Icon>;
-
         const CreditCard = (props) => <Icon {...props}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></Icon>;
-
         const UserCheck = (props) => <Icon {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></Icon>;
-
         const FilterIcon = (props) => <Icon {...props}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></Icon>;
-
-
-
+        const Globe = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></Icon>;
+        const TrendingUp = (props) => <Icon {...props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></Icon>;
 
 
         // --- PALETA DE COLORES ---
-
         const COLORS = [
-
             { id: 'red', bg: '#fee2e2', text: '#991b1b', name: 'Rojo' },
-
             { id: 'orange', bg: '#ffedd5', text: '#9a3412', name: 'Naranja' },
-
             { id: 'amber', bg: '#fef3c7', text: '#92400e', name: 'Ámbar' },
-
             { id: 'green', bg: '#dcfce7', text: '#166534', name: 'Verde' },
-
             { id: 'emerald', bg: '#d1fae5', text: '#065f46', name: 'Esmeralda' },
-
             { id: 'teal', bg: '#ccfbf1', text: '#115e59', name: 'Teal' },
-
             { id: 'blue', bg: '#dbeafe', text: '#1e40af', name: 'Azul' },
-
             { id: 'indigo', bg: '#e0e7ff', text: '#3730a3', name: 'Indigo' },
-
             { id: 'violet', bg: '#ede9fe', text: '#5b21b6', name: 'Violeta' },
-
             { id: 'fuchsia', bg: '#fae8ff', text: '#86198f', name: 'Fucsia' },
-
             { id: 'rose', bg: '#ffe4e6', text: '#9f1239', name: 'Rosa' },
-
         ];
-
-
 
         // --- DATA DE REFERENCIA: FACULTADES ---
-
         const FACULTADES_CARRERAS = {
-
             "Facultad de Ciencias Sociales": ["Antropología", "Ciencia Política y Gobierno", "Relaciones Internacionales", "Sociología"],
-
             "Facultad de Letras y Ciencias Humanas": ["Arqueología", "Filosofía", "Geografía y Medio Ambiente", "Historia", "Humanidades", "Lingüística y Literatura"],
-
             "Facultad de Arquitectura y Urbanismo": ["Arquitectura"],
-
             "Facultad de Arte y Diseño": ["Arte, Moda y Diseño Textil", "Diseño Gráfico", "Diseño Industrial", "Escultura", "Grabado", "Pintura"],
-
             "Facultad de Ciencias y Artes de la Comunicación": ["Comunicación Audiovisual", "Comunicación para el Desarrollo", "Periodismo", "Publicidad"],
-
             "Facultad de Ciencias Contables": ["Contabilidad", "Economía", "Finanzas"],
-
             "Facultad de Artes Escénicas": ["Creación y Producción Escénica", "Danza", "Música", "Teatro"],
-
             "Facultad de Derecho": ["Derecho"],
-
             "Facultad de Educación": ["Educación Artística", "Educación Inicial", "Educación Primaria", "Educación Secundaria"],
-
             "Facultad de Ciencias e Ingeniería": ["Física", "Ingeniería Ambiental y Sostenible", "Ingeniería Biomédica", "Ingeniería Civil", "Ingeniería de las Telecomunicaciones", "Ingeniería de Minas", "Ingeniería Electrónica", "Ingeniería Geológica", "Ingeniería Industrial", "Ingeniería Informática", "Ingeniería Mecánica", "Ingeniería Mecatrónica", "Ingeniería Química", "Matemáticas", "Química"],
-
             "Facultad de Gastronomía, Hotelería y Turismo": ["Gastronomía", "Hotelería", "Turismo"],
-
             "Facultad de Gestión y Alta Dirección": ["Gestión"],
-
             "Facultad de Psicología": ["Psicología"]
-
         };
 
-
-
         // --- DATA DE REFERENCIA: UNIDADES ESPECIALES ---
-
         const UNIDADES = [
-
             "DAES",
-
             "CEPREPUCP",
-
             "DARI",
-
             "DARS",
-
             "ESTUDIOS GENERALES LETRAS",
-
             "ESTUDIOS GENERALES CIENCIAS",
-
             "Librería PUCP",
-
             "VRI",
-
             "RPU",
-
             "Grupos Estudiantiles"
-
         ];
-
-
 
         const TIPOS_PUBLICACION = ['Reel', 'Storie', 'Post', 'Carrusel', 'Video'];
-
         
-
         // LISTA DE CONTENIDOS ACTUALIZADA
-
         const TIPOS_CONTENIDO = [
-
             "Contenidos por tipo", "Contenido por modalidad", "Contenido por convocatoria", "Un día como estudiante", 
-
             "Testimoniales", "Beca 18", "Eventos", "Simulacros de Admisión", "Contenido de Carrera", 
-
             "Descubra la carrera...", "Testimonio de Egresado", "Mitos de Carrera", "Descube la PUCP (espacios)", 
-
             "Días especiales Coyuntura", "Cobertura de Exámenes de Admisión", "Bienvenidas de Cachimbos", 
-
             "Jueves Culturales", "Conoce a (Grupos Estudiantiles)", "Así es estudiar...", "Primer día de Clases", 
-
             "Bienvenida RPU", "Mi Rutina como estudiante...", "Una semana como estudiante...", 
-
             "Razones para elegir a la PUCP", "Girls in ICT", "Experiencia Internacional ...", "Semana de la Danza", 
-
             "Beneficios de Estudiar...", "TANDEM", "Cómo postular a la PUCP", "Semana de la Educación Inicial", 
-
             "Interfacultades", "Tour de Laboratorios", "Deportistas PUCP", "Diferencias de Carreras VS", 
-
             "Talleres Pre- Textos", "Arquitectura - PARADA DE PROYECTOS", "XPO STEM", "BECAS LUCET", 
-
             "Graduaciones PUCP", "Feria de Emple+habilidad", "Información Beca 18", "PUCP MUN", "BECAS PUCP", 
-
             "¿Por qué (Carrera)?", "Visitas de Estudio"
-
         ];
-
-
 
         const REDES_SOCIALES = ['TikTok', 'Instagram', 'Facebook'];
-
         const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
-
-
         const ADMISSION_TITLES = [
-
             "Evaluación de Talento ®", "Diploma de Bachillerato", "La Primera Opción ®",
-
             "Admisión por Rendimiento Superior - ARS", "La Primera Opción ® - Alto Desempeño",
-
             "Primeros Puestos - Evaluación del Talento ®", "Especialidades Artísticas",
-
             "Admisión Ingeniería Biomédica", "Admisión Arquitectura", "Ingreso Adulto",
-
             "Traslado Externo", "Hijos y Cónyuges de Funcionarios Internacionales",
-
             "Inscripciones en línea", "Último día de pago", "Evaluación Académica", "Publicación de Resultados"
-
         ];
-
-
 
         const DEFAULT_COLOR = COLORS[6]; 
 
-
-
         // --- MOCK DATA INICIAL ---
-
         const INITIAL_DATA = {
-
             eventos: [
-
                 { id: 1, titulo: "Inicio de Clases 2026-1", fechaInicio: "2026-03-16", fechaFin: "2026-03-16", tipo: "Evento", color: COLORS[0], desc: "Bienvenida a alumnos nuevos", linkRegistro: "" },
-
                 { id: 2, titulo: "Campaña Admisión Marzo", fechaInicio: "2026-02-01", fechaFin: "2026-03-15", tipo: "Campaña", color: COLORS[4], desc: "Pauta digital fuerte", linkRegistro: "https://admision.universidad.edu/registro" },
-
                 { 
-
                     id: 3, titulo: "La Primera Opción ®", fechaInicio: "2026-03-01", fechaFin: "2026-03-30", tipo: "Admisión", color: COLORS[2], desc: "Proceso principal", linkRegistro: "",
-
                     admision: { inscripcionInicio: "2026-03-01", inscripcionFin: "2026-03-20", ultimoPago: "2026-03-21", evaluacion: "2026-03-25", resultados: "2026-03-30" }
-
                 },
-
                 { id: 4, titulo: "Open Day", fechaInicio: "2026-03-05", fechaFin: "2026-03-06", tipo: "Evento", color: COLORS[7], desc: "Evento presencial", linkRegistro: "https://openday.universidad.edu" },
-
                 { id: 6, titulo: "Día del Community Manager", fechaInicio: "2026-01-26", fechaFin: "2026-01-26", tipo: "Redes", color: COLORS[6], desc: "Post saludo equipo", linkRegistro: "" },
-
             ],
-
             posts: [
-
                 { id: 101, titulo: "Reel: 5 Tips para estudiar", fecha: "2026-03-20", red: "TikTok", facultad: "Facultad de Ciencias e Ingeniería", carrera: "Ingeniería Informática", unidad: "", tipoPub: "Reel", tipoCont: "Coyuntura", img: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=400&q=80", link: "#" },
-
                 { id: 102, titulo: "Post: Beneficios de la carrera", fecha: "2026-02-10", red: "Instagram", facultad: "Facultad de Arte y Diseño", carrera: "Diseño Gráfico", unidad: "", tipoPub: "Post", tipoCont: "Proceso de admisión", img: "https://images.unsplash.com/photo-1503387762-592deb58ef4e?auto=format&fit=crop&w=400&q=80", link: "#" },
-
                 { id: 103, titulo: "Storie: Charla Internacional", fecha: "2026-02-15", red: "Facebook", facultad: "Facultad de Ciencias Sociales", carrera: "Economía", unidad: "", tipoPub: "Storie", tipoCont: "Internacionalización", img: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=400&q=80", link: "#" },
-
                 { id: 104, titulo: "Carrusel: Libros Recomendados", fecha: "2026-04-05", red: "Instagram", facultad: "", carrera: "", unidad: "Librería PUCP", tipoPub: "Carrusel", tipoCont: "Contenidos por tipo", img: "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=400&q=80", link: "#" },
-
             ]
-
         };
-
-
 
         // --- COMPONENTES UI ---
 
-
-
         const Modal = ({ isOpen, onClose, title, children }) => {
-
             if (!isOpen) return null;
-
             return (
-
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
-
                     <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in max-h-[90vh] overflow-y-auto">
-
                         <div className="flex justify-between items-center p-4 border-b">
-
                             <h3 className="font-bold text-lg text-gray-800">{title}</h3>
-
                             <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><XIcon size={20}/></button>
-
                         </div>
-
                         <div className="p-4">
-
                             {children}
-
                         </div>
-
                     </div>
-
                 </div>
-
             );
-
         };
-
-
 
         const StatusBadge = ({ type, color }) => {
-
             const style = color ? { backgroundColor: color.bg, color: color.text, borderColor: color.bg } : {};
-
             return (
-
                 <span style={style} className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border">
-
                     {type}
-
                 </span>
-
             );
-
         };
 
-
-
         const FilterCheckbox = ({ label, checked, onChange }) => (
-
             <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer hover:bg-gray-50 p-1 rounded">
-
                 <input 
-
                     type="checkbox" 
-
                     className="w-4 h-4 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500 custom-checkbox"
-
                     checked={checked}
-
                     onChange={(e) => onChange(e.target.checked)}
-
                 />
-
                 <span className={checked ? "font-semibold text-gray-800" : ""}>{label}</span>
-
             </label>
-
         );
-
-
 
         // --- APP PRINCIPAL ---
 
-
-
         const App = () => {
-
             const [view, setView] = useState('campaigns'); 
-
             const [data, setData] = useState(INITIAL_DATA);
-
             const [currentDate, setCurrentDate] = useState(new Date(2026, 2, 1)); 
-
             const [calendarView, setCalendarView] = useState('month'); 
 
-
-
             // Filtros Galería (Multi-selección)
-
             const [galleryFilters, setGalleryFilters] = useState({
-
                 redes: [], 
-
                 tiposPub: [],
-
                 tiposCont: [],
-
                 facultad: '',
-
                 unidad: '',
-
                 carrera: '',
-
                 year: '2026',
-
                 month: 'Todos',
-
                 day: ''
-
             });
-
-
 
             // Modales
-
             const [isAddEventOpen, setIsAddEventOpen] = useState(false);
-
             const [isViewEventOpen, setIsViewEventOpen] = useState(false);
-
             const [isAddPostOpen, setIsAddPostOpen] = useState(false);
-
+            const [isViewPostOpen, setIsViewPostOpen] = useState(false);
             const [isEditing, setIsEditing] = useState(false);
-
             const [isDeleting, setIsDeleting] = useState(false);
-
+            const [isEditingPost, setIsEditingPost] = useState(false);
+            const [isDeletingPost, setIsDeletingPost] = useState(false);
             
-
             // Estado para Nuevo Evento
-
             const [newEvent, setNewEvent] = useState({ 
-
                 titulo: '', fechaInicio: '', fechaFin: '', tipo: 'Campaña', desc: '', color: DEFAULT_COLOR, linkRegistro: '',
-
                 admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' }
-
             });
-
             const [selectedEvent, setSelectedEvent] = useState(null);
 
-
-
-            // Estado para Nueva Publicación (Galería)
-
+            // Estado para Nueva/Editar Publicación (Galería)
             const [newPost, setNewPost] = useState({
-
                 titulo: '', fecha: '', red: 'Instagram', 
-
                 sourceType: 'facultad', // 'facultad' o 'unidad'
-
                 facultad: '', carrera: '', unidad: '',
-
                 tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: ''
-
             });
-
-
+            const [selectedPost, setSelectedPost] = useState(null);
 
             // --- UTILIDADES ---
-
             const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
             const isDateInRange = (check, start, end) => check >= start && check <= end;
-
             const isSameDay = (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
-
             const getDaysRemaining = (end) => Math.ceil((new Date(end) - new Date(currentDate)) / (1000 * 60 * 60 * 24));
-
             const getProgress = (startStr, endStr) => {
-
                 const total = new Date(endStr) - new Date(startStr);
-
                 const current = new Date(currentDate) - new Date(startStr);
-
                 return total <= 0 ? 100 : Math.min(Math.max((current / total) * 100, 0), 100);
-
             };
-
-
 
             const getTitleForView = () => {
-
                 switch(view) {
-
                     case 'campaigns': return 'Calendario de Campañas';
-
                     case 'social': return 'Calendario de Redes';
-
                     case 'events': return 'Calendario de Eventos';
-
                     case 'admission': return 'Calendario de Admisión';
-
                     case 'posts': return 'Galería de Publicaciones';
-
                     default: return 'Calendario';
-
                 }
-
             };
-
-
 
             const getTypeForView = () => {
-
                 switch(view) {
-
                     case 'campaigns': return 'Campaña';
-
                     case 'social': return 'Redes';
-
                     case 'events': return 'Evento';
-
                     case 'admission': return 'Admisión';
-
                     default: return 'Todos';
-
                 }
-
             };
-
-
 
             // --- LOGICA FILTROS GALERÍA ---
-
             const toggleFilter = (category, value) => {
-
                 setGalleryFilters(prev => {
-
                     const current = prev[category];
-
                     const updated = current.includes(value) 
-
                         ? current.filter(item => item !== value) 
-
                         : [...current, value];
-
                     return { ...prev, [category]: updated };
-
                 });
-
             };
 
-
-
             const filteredPosts = useMemo(() => {
-
                 return data.posts.filter(post => {
-
                     // Desglose seguro de la fecha
-
                     const [pYear, pMonth, pDay] = post.fecha.split('-').map(Number);
 
-
-
                     const matchYear = galleryFilters.year === 'Todos' || pYear.toString() === galleryFilters.year;
-
                     const matchMonth = galleryFilters.month === 'Todos' || (pMonth).toString() === galleryFilters.month; 
-
                     const matchDay = galleryFilters.day === '' || pDay.toString() === galleryFilters.day;
 
-
-
                     const matchRed = galleryFilters.redes.length === 0 || galleryFilters.redes.includes(post.red);
-
                     const matchTipoPub = galleryFilters.tiposPub.length === 0 || galleryFilters.tiposPub.includes(post.tipoPub);
-
                     const matchTipoCont = galleryFilters.tiposCont.length === 0 || galleryFilters.tiposCont.includes(post.tipoCont);
-
                     
-
                     const matchFacultad = galleryFilters.facultad === '' || post.facultad === galleryFilters.facultad;
-
                     const matchCarrera = galleryFilters.carrera === '' || post.carrera === galleryFilters.carrera;
-
                     const matchUnidad = galleryFilters.unidad === '' || post.unidad === galleryFilters.unidad;
 
-
-
                     return matchYear && matchMonth && matchDay && matchRed && matchTipoPub && matchTipoCont && matchFacultad && matchCarrera && matchUnidad;
-
                 });
-
             }, [data.posts, galleryFilters]);
-
-
+            
+            const stats = useMemo(() => {
+                const total = filteredPosts.length;
+                const interCount = filteredPosts.filter(p => p.tipoCont.includes('Internacional')).length;
+                const careerCounts = {};
+                filteredPosts.forEach(p => { if (p.carrera) careerCounts[p.carrera] = (careerCounts[p.carrera] || 0) + 1; });
+                const sortedCareers = Object.entries(careerCounts).sort(([,a], [,b]) => b - a).slice(0, 3).map(([name, count]) => ({ name, count }));
+                return { total, interCount, sortedCareers };
+            }, [filteredPosts]);
 
             const availableCareers = useMemo(() => galleryFilters.facultad ? (FACULTADES_CARRERAS[galleryFilters.facultad] || []) : [], [galleryFilters.facultad]);
-
             // Carreras para el formulario de Nueva Publicación
-
             const availableCareersForm = useMemo(() => newPost.facultad ? (FACULTADES_CARRERAS[newPost.facultad] || []) : [], [newPost.facultad]);
 
 
-
-
-
             // --- LOGICA CALENDARIO ---
-
             const getFilteredEvents = () => {
-
                 const targetType = getTypeForView();
-
                 if (targetType === 'Todos') return data.eventos;
-
                 return data.eventos.filter(e => e.tipo === targetType);
-
             };
-
-
 
             const monthGrid = useMemo(() => {
-
                 const year = currentDate.getFullYear();
-
                 const month = currentDate.getMonth();
-
                 const daysInMonth = new Date(year, month + 1, 0).getDate();
-
                 const firstDayOfWeek = new Date(year, month, 1).getDay(); 
-
                 const eventsToShow = getFilteredEvents();
-
                 const grid = [];
-
                 for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
-
                 for (let i = 1; i <= daysInMonth; i++) {
-
                     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-
                     const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-
                     grid.push({ day: i, dateStr, events: dayEvents, dayOfWeek: (firstDayOfWeek + i - 1) % 7 });
-
                 }
-
                 return grid;
-
             }, [currentDate, data.eventos, view]);
-
-
 
             const weekGrid = useMemo(() => {
-
                 const startOfWeek = new Date(currentDate);
-
                 const day = startOfWeek.getDay();
-
                 startOfWeek.setDate(currentDate.getDate() - day);
-
                 const eventsToShow = getFilteredEvents();
-
                 const days = [];
-
                 for (let i = 0; i < 7; i++) {
-
                     const d = new Date(startOfWeek);
-
                     d.setDate(startOfWeek.getDate() + i);
-
                     const dateStr = formatDate(d);
-
                     const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-
                     days.push({ date: d, dateStr, events: dayEvents });
-
                 }
-
                 return days;
-
             }, [currentDate, data.eventos, view]);
-
-
 
             const dayEvents = useMemo(() => {
-
                 const dateStr = formatDate(currentDate);
-
                 const eventsToShow = getFilteredEvents();
-
                 return eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-
             }, [currentDate, data.eventos, view]);
-
-
 
             const summaryItems = useMemo(() => {
-
                 const todayStr = formatDate(currentDate);
-
                 const targetType = getTypeForView();
-
                 if (view === 'campaigns') return data.eventos.filter(e => e.tipo === 'Campaña' && e.fechaFin >= todayStr).sort((a,b) => a.fechaFin.localeCompare(b.fechaFin));
-
                 return data.eventos.filter(e => e.tipo === targetType && e.fechaInicio >= todayStr).sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio)).slice(0, 5);
-
             }, [currentDate, data.eventos, view]);
 
-
-
-            // --- HANDLERS ---
-
+            // --- HANDLERS EVENTOS ---
             const handleSaveEvent = () => {
-
                 if(!newEvent.fechaInicio) return;
-
                 const nextId = isEditing ? newEvent.id : (data.eventos.length > 0 ? Math.max(...data.eventos.map(e => e.id)) + 1 : 1);
-
                 const finalEvent = { ...newEvent, fechaFin: newEvent.fechaFin || newEvent.fechaInicio, id: nextId };
-
                 if (isEditing) setData(prev => ({ ...prev, eventos: prev.eventos.map(ev => ev.id === finalEvent.id ? finalEvent : ev) }));
-
                 else setData(prev => ({ ...prev, eventos: [...prev.eventos, finalEvent] }));
-
                 setIsAddEventOpen(false); setIsEditing(false);
-
                 setNewEvent({ titulo: '', fechaInicio: '', fechaFin: '', tipo: getTypeForView(), desc: '', color: DEFAULT_COLOR, linkRegistro: '', admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } });
-
             };
-
-
-
-            const handleSavePost = () => {
-
-                if(!newPost.titulo || !newPost.img) return alert("Completa los datos");
-
-                
-
-                let finalTipoCont = newPost.tipoCont;
-
-                if(newPost.tipoCont === "Días especiales Coyuntura" && newPost.coyunturaDetalle) {
-
-                    finalTipoCont = `${newPost.tipoCont}: ${newPost.coyunturaDetalle}`;
-
-                }
-
-                
-
-                const nextId = data.posts.length > 0 ? Math.max(...data.posts.map(p => p.id)) + 1 : 101;
-
-                const finalPost = { 
-
-                    ...newPost, 
-
-                    tipoCont: finalTipoCont,
-
-                    id: nextId, 
-
-                    fecha: newPost.fecha || formatDate(new Date()) 
-
-                };
-
-                setData(prev => ({ ...prev, posts: [...prev.posts, finalPost] }));
-
-                setIsAddPostOpen(false);
-
-                setNewPost({ 
-
-                    titulo: '', fecha: '', red: 'Instagram', 
-
-                    sourceType: 'facultad', facultad: '', carrera: '', unidad: '',
-
-                    tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' 
-
-                });
-
-            };
-
-
 
             const initiateDelete = () => { setIsDeleting(true); };
-
             const confirmDeleteEvent = () => { if (selectedEvent) { setData(prev => ({...prev, eventos: prev.eventos.filter(ev => ev.id !== selectedEvent.id)})); setIsViewEventOpen(false); setIsDeleting(false); }};
-
             const cancelDelete = () => { setIsDeleting(false); };
-
             const handleEditBtnClick = () => { if (selectedEvent) { setNewEvent({ ...selectedEvent, admision: selectedEvent.admision || { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } }); setIsEditing(true); setIsViewEventOpen(false); setIsAddEventOpen(true); }};
-
             const handleOpenAddModal = (initialDate = '') => { setIsEditing(false); const currentType = getTypeForView(); setNewEvent({ titulo: '', fechaInicio: initialDate, fechaFin: initialDate, tipo: currentType === 'Todos' ? 'Evento' : currentType, desc: '', color: DEFAULT_COLOR, linkRegistro: '', admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } }); setIsAddEventOpen(true); };
-
             const handleEventClick = (e, event) => { e.stopPropagation(); setSelectedEvent(event); setIsDeleting(false); setIsViewEventOpen(true); };
+
+            // --- HANDLERS POSTS ---
+            const handlePostClick = (post) => { setSelectedPost(post); setIsDeletingPost(false); setIsViewPostOpen(true); };
+            const handleOpenAddPostModal = () => { setIsEditingPost(false); setNewPost({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' }); setIsAddPostOpen(true); };
+            const handleEditPostBtnClick = () => { if (!selectedPost) return; let tipoCont = selectedPost.tipoCont; let coyunturaDetalle = ''; if (tipoCont && tipoCont.startsWith("Días especiales Coyuntura: ")) { coyunturaDetalle = tipoCont.replace("Días especiales Coyuntura: ", ""); tipoCont = "Días especiales Coyuntura"; } setNewPost({ ...selectedPost, sourceType: selectedPost.unidad ? 'unidad' : 'facultad', tipoCont: tipoCont, coyunturaDetalle: coyunturaDetalle }); setIsEditingPost(true); setIsViewPostOpen(false); setIsAddPostOpen(true); };
+            const initiateDeletePost = () => { setIsDeletingPost(true); };
+            const cancelDeletePost = () => { setIsDeletingPost(false); };
+            const confirmDeletePost = () => { if (!selectedPost) return; setData(prev => ({ ...prev, posts: prev.posts.filter(p => p.id !== selectedPost.id) })); setIsViewPostOpen(false); setIsDeletingPost(false); setSelectedPost(null); };
+            const handleSavePost = () => { if(!newPost.titulo || !newPost.img) return alert("Completa los datos"); let finalTipoCont = newPost.tipoCont; if(newPost.tipoCont === "Días especiales Coyuntura" && newPost.coyunturaDetalle) { finalTipoCont = `${newPost.tipoCont}: ${newPost.coyunturaDetalle}`; } const nextId = isEditingPost ? newPost.id : (data.posts.length > 0 ? Math.max(...data.posts.map(p => p.id)) + 1 : 101); const finalPost = { ...newPost, tipoCont: finalTipoCont, id: nextId, fecha: newPost.fecha || formatDate(new Date()) }; if (isEditingPost) { setData(prev => ({ ...prev, posts: prev.posts.map(p => p.id === finalPost.id ? finalPost : p) })); } else { setData(prev => ({ ...prev, posts: [...prev.posts, finalPost] })); } setIsAddPostOpen(false); setIsEditingPost(false); setNewPost({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' }); };
 
             const changeTime = (offset) => { const newDate = new Date(currentDate); if (calendarView === 'month') newDate.setMonth(newDate.getMonth() + offset); else newDate.setDate(newDate.getDate() + offset); setCurrentDate(newDate); };
 
-
-
             const renderCalendarView = () => {
-
                 switch(calendarView) {
-
                     case 'month': return <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in"><div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200">{['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'].map(d => <div key={d} className="py-3 text-center text-xs font-semibold text-gray-400 uppercase tracking-wide">{d}</div>)}</div><div className="grid grid-cols-7">{monthGrid.map((cell, idx) => <div key={idx} className={`calendar-cell border-r border-b border-gray-100 relative group p-1 ${!cell ? 'bg-gray-50/50' : 'bg-white'}`}>{cell && <><div className="flex justify-between items-start px-2 py-1"><span className={`text-sm font-medium ${cell.events.length > 0 ? 'text-indigo-600' : 'text-gray-500'}`}>{cell.day}</span><button className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-indigo-600 transition-all" onClick={() => handleOpenAddModal(cell.dateStr)}><Plus size={14}/></button></div><div className="flex flex-col gap-1 mt-1">{cell.events.map(ev => { const isStart = ev.fechaInicio === cell.dateStr; const isEnd = ev.fechaFin === cell.dateStr; const isSunday = cell.dayOfWeek === 0; const showText = isStart || isSunday; const borderClass = `${isStart ? 'rounded-l-md ml-1' : '-ml-px'} ${isEnd ? 'rounded-r-md mr-1' : '-mr-px'}`; const style = { backgroundColor: ev.color?.bg || '#eee', color: ev.color?.text || '#333' }; return <div key={ev.id} onClick={(e) => handleEventClick(e, ev)} style={style} className={`event-strip h-6 text-xs flex items-center cursor-pointer select-none overflow-hidden ${borderClass}`} title={`${ev.titulo} (${ev.fechaInicio} - ${ev.fechaFin})`}>{showText && <span className="px-2 truncate font-medium">{ev.titulo}</span>}</div> })}</div></>}</div>)}</div></div>;
-
                     case 'week': return <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden fade-in flex flex-col h-[600px]"><div className="grid grid-cols-7 bg-gray-50 border-b border-gray-200 flex-none">{weekGrid.map((d, idx) => <div key={idx} className={`py-3 text-center border-r border-gray-200 last:border-0 ${isSameDay(d.date, new Date()) ? 'bg-indigo-50' : ''}`}><div className="text-xs text-gray-400 uppercase">{d.date.toLocaleString('es-ES', {weekday: 'short'})}</div><div className={`font-bold ${isSameDay(d.date, new Date()) ? 'text-indigo-600' : 'text-gray-700'}`}>{d.date.getDate()}</div></div>)}</div><div className="grid grid-cols-7 flex-1 overflow-y-auto">{weekGrid.map((d, idx) => <div key={idx} className="border-r border-gray-100 p-2 space-y-2 min-h-[200px] hover:bg-gray-50 transition">{d.events.map(ev => { const style = { backgroundColor: ev.color?.bg || '#eee', color: ev.color?.text || '#333', borderColor: ev.color?.text }; return <div key={ev.id} onClick={(e) => handleEventClick(e, ev)} style={style} className="p-2 rounded-lg text-xs border shadow-sm cursor-pointer hover:shadow-md transition opacity-90 hover:opacity-100"><div className="font-bold">{ev.titulo}</div></div> })}<button className="w-full py-2 text-gray-300 hover:text-indigo-500 hover:bg-indigo-50 rounded text-xs flex justify-center" onClick={() => handleOpenAddModal(d.dateStr)}>+</button></div>)}</div></div>;
-
                     case 'day': return <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 max-w-4xl mx-auto fade-in min-h-[500px]"><div className="flex items-center gap-4 mb-6 pb-6 border-b border-gray-100"><div className="text-center bg-indigo-50 px-6 py-4 rounded-xl"><div className="text-sm text-indigo-400 uppercase font-bold">{currentDate.toLocaleString('es-ES', {weekday: 'long'})}</div><div className="text-4xl font-bold text-indigo-700">{currentDate.getDate()}</div></div><div><h3 className="text-xl font-bold text-gray-800">Agenda Detallada</h3><p className="text-gray-500 text-sm">Eventos y tareas para este día.</p></div></div><div className="space-y-4">{dayEvents.length > 0 ? dayEvents.map(ev => { const style = { backgroundColor: ev.color?.bg || '#eee', borderColor: ev.color?.text || '#ccc' }; const textStyle = { color: ev.color?.text || '#333' }; return <div key={ev.id} onClick={(e) => handleEventClick(e, ev)} className="flex gap-4 group cursor-pointer"><div className="w-20 text-right text-sm text-gray-400 font-medium py-3">Todo el día</div><div style={style} className="flex-1 p-4 rounded-xl border transition-all hover:shadow-md"><div className="flex justify-between items-start"><h4 style={textStyle} className="font-bold text-lg">{ev.titulo}</h4><StatusBadge type={ev.tipo} color={ev.color} /></div><div className="flex items-center gap-2 mt-2 text-sm opacity-75" style={textStyle}><Clock size={14}/><span>{ev.fechaInicio} al {ev.fechaFin}</span></div></div></div> }) : <div className="flex flex-col items-center justify-center py-20 text-gray-400 bg-gray-50 rounded-xl border border-dashed border-gray-200"><div className="mb-2">☕</div><p>No hay eventos programados.</p></div>}</div></div>;
-
                 }
-
             };
 
-
-
             return (
-
                 <div className="flex h-screen overflow-hidden">
-
                     {/* SIDEBAR */}
-
                     <aside className="w-72 bg-white border-r border-gray-200 flex flex-col z-20 shadow-xl overflow-y-auto">
-
                         <div className="p-6">
-
                             <div className="flex items-center gap-2 text-indigo-700 font-bold text-xl mb-1">
-
                                 <LayoutGrid size={24} />
-
                                 <span>Planificador PUCP</span>
-
                             </div>
-
                             <p className="text-xs text-gray-400 font-medium">Calendarios 2026</p>
-
                         </div>
-
                         
-
                         <nav className="flex-1 px-4 space-y-2">
-
                             <div className="px-2 text-xs font-bold text-gray-400 uppercase mb-2 mt-4">Calendarios</div>
-
                             <button onClick={() => setView('campaigns')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'campaigns' ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><Megaphone size={18} /> Campañas</button>
-
                             <button onClick={() => setView('social')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'social' ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><Hash size={18} /> Redes Sociales</button>
-
                             <button onClick={() => setView('events')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'events' ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><PartyPopper size={18} /> Eventos</button>
-
                             <button onClick={() => setView('admission')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'admission' ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><GraduationCap size={18} /> Procesos Admisión</button>
 
-
-
                             <div className="px-2 text-xs font-bold text-gray-400 uppercase mb-2 mt-6">Contenido</div>
-
                             <button onClick={() => setView('posts')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${view === 'posts' ? 'bg-indigo-50 text-indigo-700 font-semibold shadow-sm' : 'text-gray-600 hover:bg-gray-50'}`}><ImageIcon size={18} /> Galería</button>
-
                         </nav>
 
-
-
                         {/* FILTROS DE GALERÍA */}
-
                         {view === 'posts' && (
-
                             <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-5 text-sm">
-
                                 <div className="flex items-center gap-2 font-bold text-gray-700 border-b pb-2">
-
                                     <FilterIcon size={16}/> Filtros Galería
-
                                 </div>
-
-
 
                                 {/* FILTROS DE FECHA */}
-
                                 <div>
-
                                     <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Fecha</h4>
-
                                     <div className="space-y-2">
-
                                         <select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.year} onChange={(e) => setGalleryFilters({...galleryFilters, year: e.target.value})}>
-
                                             <option value="Todos">Año: Todos</option>
-
+                                            <option value="2024">2024</option>
                                             <option value="2025">2025</option>
-
                                             <option value="2026">2026</option>
-
                                             <option value="2027">2027</option>
-
                                         </select>
-
                                         <div className="flex gap-2">
-
                                             <select className="w-2/3 border rounded p-1.5 bg-white text-xs" value={galleryFilters.month} onChange={(e) => setGalleryFilters({...galleryFilters, month: e.target.value})}>
-
                                                 <option value="Todos">Mes</option>
-
                                                 {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
-
                                             </select>
-
                                             <select className="w-1/3 border rounded p-1.5 bg-white text-xs" value={galleryFilters.day} onChange={(e) => setGalleryFilters({...galleryFilters, day: e.target.value})}>
-
                                                 <option value="">Día</option>
-
                                                 {Array.from({length:31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
-
                                             </select>
-
                                         </div>
-
                                     </div>
-
                                 </div>
-
-
 
                                 <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Red Social</h4><div className="space-y-1">{REDES_SOCIALES.map(red => <FilterCheckbox key={red} label={red} checked={galleryFilters.redes.includes(red)} onChange={() => toggleFilter('redes', red)} />)}</div></div>
-
                                 <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Tipo Publicación</h4><div className="space-y-1">{TIPOS_PUBLICACION.map(tipo => <FilterCheckbox key={tipo} label={tipo} checked={galleryFilters.tiposPub.includes(tipo)} onChange={() => toggleFilter('tiposPub', tipo)} />)}</div></div>
-
                                 <div>
-
                                     <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Tipo Contenido</h4>
-
                                     <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-100 rounded p-1">
-
                                         {TIPOS_CONTENIDO.map(tipo => <FilterCheckbox key={tipo} label={tipo} checked={galleryFilters.tiposCont.includes(tipo)} onChange={() => toggleFilter('tiposCont', tipo)} />)}
-
                                     </div>
-
                                 </div>
-
+                                <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Académico / Unidad</h4><div className="space-y-2"><select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.facultad} onChange={(e) => setGalleryFilters({...galleryFilters, facultad: e.target.value, unidad: '', carrera: ''})}>
+                                    <option value="">Todas</option>{Object.keys(FACULTADES_CARRERAS).map(f => <option key={f} value={f}>{f}</option>)}
+                                </select><select className="w-full border rounded p-1.5 bg-white text-xs disabled:bg-gray-100 disabled:text-gray-400" value={galleryFilters.carrera} onChange={(e) => setGalleryFilters({...galleryFilters, carrera: e.target.value})} disabled={!galleryFilters.facultad}><option value="">Carrera</option>{availableCareers.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
                                 
-
-                                {/* FILTRO ACADÉMICO SEPARADO */}
-
-                                <div>
-
-                                    <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Filtrar por Facultad</h4>
-
-                                    <div className="space-y-2">
-
-                                        <select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.facultad} onChange={(e) => setGalleryFilters({...galleryFilters, facultad: e.target.value, unidad: '', carrera: ''})}>
-
-                                            <option value="">Todas las Facultades</option>
-
-                                            {Object.keys(FACULTADES_CARRERAS).map(f => <option key={f} value={f}>{f}</option>)}
-
-                                        </select>
-
-                                        <select className="w-full border rounded p-1.5 bg-white text-xs disabled:bg-gray-100 disabled:text-gray-400" value={galleryFilters.carrera} onChange={(e) => setGalleryFilters({...galleryFilters, carrera: e.target.value})} disabled={!galleryFilters.facultad}>
-
-                                            <option value="">Carrera</option>
-
-                                            {availableCareers.map(c => <option key={c} value={c}>{c}</option>)}
-
-                                        </select>
-
-                                    </div>
-
-                                </div>
-
-
-
-                                {/* FILTRO UNIDAD SEPARADO */}
-
-                                <div>
-
-                                    <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Filtrar por Unidad</h4>
-
-                                    <select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.unidad} onChange={(e) => setGalleryFilters({...galleryFilters, unidad: e.target.value, facultad: '', carrera: ''})}>
-
-                                        <option value="">Todas las Unidades</option>
-
-                                        {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-
-                                    </select>
-
-                                </div>
-
-
+                                <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Filtrar por Unidad</h4><select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.unidad} onChange={(e) => setGalleryFilters({...galleryFilters, unidad: e.target.value, facultad: '', carrera: ''})}><option value="">Todas las Unidades</option>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
 
                                 <button onClick={() => setGalleryFilters({redes:[], tiposPub:[], tiposCont:[], facultad:'', unidad: '', carrera:'', year:'2026', month:'Todos', day:''})} className="text-xs text-indigo-600 hover:underline w-full text-center">Limpiar Filtros</button>
-
                             </div>
-
                         )}
-
                     </aside>
 
-
-
                     {/* MAIN AREA */}
-
                     <main className="flex-1 overflow-y-auto relative">
-
                         <header className="sticky top-0 z-10 glass-panel border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-
                             <div>
-
                                 <h1 className="text-2xl font-bold text-gray-800">{getTitleForView()}</h1>
-
                                 <p className="text-sm text-gray-500">{view === 'posts' ? 'Histórico visual con filtros avanzados' : `Gestiona tus ${view === 'campaigns' ? 'campañas' : view === 'social' ? 'publicaciones' : 'eventos'} del año`}</p>
-
                             </div>
-
                             <div className="flex gap-3">
-
                                 {view !== 'posts' && (
-
                                     <div className="flex bg-gray-100 p-1 rounded-lg">
-
                                         <button onClick={() => setCalendarView('month')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'month' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Mes</button>
-
                                         <button onClick={() => setCalendarView('week')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'week' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Semana</button>
-
                                     </div>
-
                                 )}
-
-                                <button onClick={() => view !== 'posts' ? setIsAddEventOpen(true) : setIsAddPostOpen(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-semibold">
-
+                                <button onClick={() => view !== 'posts' ? setIsAddEventOpen(true) : handleOpenAddPostModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-semibold">
                                     <Plus size={18} /> {view !== 'posts' ? 'Agregar' : 'Nueva Publicación'}
-
                                 </button>
-
                             </div>
-
                         </header>
 
-
-
                         {/* VISTAS */}
-
                         {view !== 'posts' ? (
-
                             <div className="p-8 fade-in">
-
                                 <div className="flex items-center justify-between mb-6">
-
                                     <div className="flex items-center gap-4">
-
                                         <button onClick={() => changeTime(-1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronLeft/></button>
-
                                         <h2 className="text-xl font-bold text-gray-800 w-64 text-center">{calendarView === 'day' ? currentDate.toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</h2>
-
                                         <button onClick={() => changeTime(1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronRight/></button>
-
                                     </div>
-
                                 </div>
-
                                 {renderCalendarView()}
-
                                 
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-
                                     {view === 'campaigns' && (
-
                                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-
                                             <h3 className="font-bold text-lg text-gray-800 mb-4">🚀 Campañas Activas</h3>
-
                                             <div className="space-y-4">
-
                                                 {summaryItems.length > 0 ? summaryItems.map(camp => (
-
                                                     <div key={camp.id} className="border border-gray-100 rounded-xl p-4">
-
                                                         <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-gray-800">{camp.titulo}</h4><span className="text-indigo-600 font-bold">{getDaysRemaining(camp.fechaFin)} días</span></div>
-
                                                         <div className="w-full bg-gray-100 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{width: `${getProgress(camp.fechaInicio, camp.fechaFin)}%`}}></div></div>
-
                                                     </div>
-
                                                 )) : <div className="text-center text-gray-400 py-4">No hay campañas activas.</div>}
-
                                             </div>
-
                                         </div>
-
                                     )}
-
                                     <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-
                                         <h3 className="font-bold text-lg text-gray-800 mb-4">📅 Próximos Eventos</h3>
-
                                         <div className="space-y-3">
-
                                             {summaryItems.length > 0 ? summaryItems.map(ev => (
-
                                                 <div key={ev.id} className="flex gap-4 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer" onClick={(e) => {e.stopPropagation(); setSelectedEvent(ev); setIsViewEventOpen(true);}}>
-
                                                     <div className="font-bold text-gray-500 w-12 text-center">{new Date(ev.fechaInicio).getDate()} <br/><span className="text-[10px]">{new Date(ev.fechaInicio).toLocaleString('es-ES', {month:'short'}).toUpperCase()}</span></div>
-
                                                     <div><h4 className="font-semibold text-gray-800 text-sm">{ev.titulo}</h4><p className="text-xs text-gray-500">{ev.tipo}</p></div>
-
                                                 </div>
-
                                             )) : <div className="text-center text-gray-400 py-4">Nada próximo.</div>}
-
                                         </div>
-
                                     </div>
-
                                 </div>
-
                             </div>
-
                         ) : (
-
                             <div className="p-8 fade-in">
-
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-
                                     {filteredPosts.length > 0 ? filteredPosts.map(post => (
-
-                                        <div key={post.id} className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col">
-
+                                        <div key={post.id} onClick={() => handlePostClick(post)} className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col cursor-pointer">
                                             <div className="relative bg-gray-100 overflow-hidden">
-
                                                 <img src={post.img} alt={post.titulo} className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"/>
-
                                                 <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-bold shadow-sm">{post.red}</div>
-
                                                 <div className="absolute bottom-2 left-2 flex gap-1"><span className="bg-black/60 text-white px-2 py-0.5 rounded text-[10px] backdrop-blur-sm">{post.tipoPub}</span></div>
-
                                             </div>
-
                                             <div className="p-4 flex-1 flex flex-col">
-
                                                 <div className="flex flex-wrap gap-1 mb-2">
-
                                                     {post.facultad && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100 truncate max-w-full">{post.facultad}</span>}
-
                                                     {post.carrera && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] rounded border border-indigo-100 truncate max-w-full">{post.carrera}</span>}
-
                                                     {post.unidad && <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100 truncate max-w-full">{post.unidad}</span>}
-
                                                 </div>
-
                                                 <h3 className="font-bold text-gray-800 leading-tight mb-1 text-sm">{post.titulo}</h3>
-
                                                 <div className="mt-auto pt-3 flex justify-between items-end border-t border-gray-50"><span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{post.tipoCont}</span><span className="text-xs text-gray-400">{post.fecha}</span></div>
-
                                             </div>
-
                                         </div>
-
                                     )) : <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400"><Search size={48} className="mb-4 text-gray-200"/><p>No se encontraron publicaciones.</p></div>}
-
                                 </div>
-
+                                <div className="mt-12 border-t border-gray-200 pt-8">
+                                    <h3 className="text-lg font-bold text-gray-800 mb-4 px-1">Resumen de Métricas</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Total Publicaciones</p><p className="text-3xl font-bold text-indigo-600">{stats.total}</p></div><div className="bg-indigo-50 p-3 rounded-full text-indigo-600"><ImageIcon size={24} /></div></div>
+                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Foco Internacional</p><p className="text-3xl font-bold text-emerald-600">{stats.interCount}</p></div><div className="bg-emerald-50 p-3 rounded-full text-emerald-600"><Globe size={24} /></div></div>
+                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"><p className="text-sm text-gray-500 font-medium uppercase mb-3">Top Carreras</p><div className="space-y-2">{stats.sortedCareers.length > 0 ? stats.sortedCareers.map((c, i) => <div key={i} className="flex justify-between items-center text-sm"><span className="text-gray-700 truncate w-4/5">{c.name}</span><span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-xs">{c.count}</span></div>) : <p className="text-xs text-gray-400">Sin datos suficientes</p>}</div></div>
+                                    </div>
+                                </div>
                             </div>
-
                         )}
-
                     </main>
 
-
-
                     {/* MODALES DE EVENTOS (Simplificado) */}
-
                     <Modal isOpen={isAddEventOpen} onClose={() => setIsAddEventOpen(false)} title={isEditing ? "Editar" : `Nuevo en ${getTitleForView()}`}>
-
                         <div className="space-y-4">
-
                             <div><label className="block text-xs font-semibold text-gray-500 mb-1">Título</label>{newEvent.tipo === 'Admisión' ? <select className="w-full border rounded p-2 text-sm" value={newEvent.titulo} onChange={e => setNewEvent({...newEvent, titulo: e.target.value})}><option value="">Selecciona...</option>{ADMISSION_TITLES.map(t => <option key={t} value={t}>{t}</option>)}</select> : <input type="text" className="w-full border rounded p-2 text-sm" placeholder="Ej: Lanzamiento..." value={newEvent.titulo} onChange={e => setNewEvent({...newEvent, titulo: e.target.value})} />}</div>
-
                             <div className="grid grid-cols-2 gap-4"><div><label className="block text-xs font-semibold text-gray-500 mb-1">Inicio</label><input type="date" className="w-full border rounded p-2 text-sm" value={newEvent.fechaInicio} onChange={e => setNewEvent({...newEvent, fechaInicio: e.target.value})} /></div><div><label className="block text-xs font-semibold text-gray-500 mb-1">Fin</label><input type="date" className="w-full border rounded p-2 text-sm" value={newEvent.fechaFin} onChange={e => setNewEvent({...newEvent, fechaFin: e.target.value})} /></div></div>
-
                             {newEvent.tipo === 'Admisión' && <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 space-y-3">
-
                                 <div><label className="block text-xs font-semibold text-indigo-700 mb-1">Inscripciones</label><div className="grid grid-cols-2 gap-2"><input type="date" className="w-full border rounded p-2 text-xs" value={newEvent.admision.inscripcionInicio} onChange={e => setNewEvent({...newEvent, admision: {...newEvent.admision, inscripcionInicio: e.target.value}})} /><input type="date" className="w-full border rounded p-2 text-xs" value={newEvent.admision.inscripcionFin} onChange={e => setNewEvent({...newEvent, admision: {...newEvent.admision, inscripcionFin: e.target.value}})} /></div></div>
-
                                 <div className="grid grid-cols-2 gap-2"><div><label className="block text-xs font-semibold text-indigo-700 mb-1">Último Pago</label><input type="date" className="w-full border rounded p-2 text-xs" value={newEvent.admision.ultimoPago} onChange={e => setNewEvent({...newEvent, admision: {...newEvent.admision, ultimoPago: e.target.value}})} /></div><div><label className="block text-xs font-semibold text-indigo-700 mb-1">Evaluación</label><input type="date" className="w-full border rounded p-2 text-xs" value={newEvent.admision.evaluacion} onChange={e => setNewEvent({...newEvent, admision: {...newEvent.admision, evaluacion: e.target.value}})} /></div></div>
-
                                 <div><label className="block text-xs font-semibold text-indigo-700 mb-1">Resultados</label><input type="date" className="w-full border rounded p-2 text-xs" value={newEvent.admision.resultados} onChange={e => setNewEvent({...newEvent, admision: {...newEvent.admision, resultados: e.target.value}})} /></div>
-
                             </div>}
-
                             <div><label className="block text-xs font-semibold text-gray-500 mb-2">Color</label><div className="flex gap-2 flex-wrap">{COLORS.map(c => <button key={c.id} onClick={() => setNewEvent({...newEvent, color: c})} className={`w-8 h-8 rounded-full border-2 ${newEvent.color?.id === c.id ? 'border-gray-600 scale-110' : 'border-transparent'}`} style={{ backgroundColor: c.bg }}></button>)}</div></div>
-
                             <button onClick={handleSaveEvent} className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition">{isEditing ? "Actualizar" : "Guardar"}</button>
-
                         </div>
-
                     </Modal>
-
                     
-
-                    {/* MODAL NUEVA PUBLICACIÓN (COMPLETO Y CON LÓGICA DE COMBINACIONES) */}
-
-                    <Modal isOpen={isAddPostOpen} onClose={() => setIsAddPostOpen(false)} title="Nueva Publicación">
-
+                    {/* MODAL NUEVA/EDITAR PUBLICACIÓN */}
+                    <Modal isOpen={isAddPostOpen} onClose={() => setIsAddPostOpen(false)} title={isEditingPost ? "Editar Publicación" : "Nueva Publicación"}>
                         <div className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-
                             {/* Imagen */}
-
                             <div>
-
                                 <label className="block text-xs font-semibold text-gray-500 mb-1">URL Imagen</label>
-
                                 <input type="text" className="w-full border rounded p-2 text-sm" placeholder="https://..." value={newPost.img} onChange={e => setNewPost({...newPost, img: e.target.value})} />
-
                                 {newPost.img && <img src={newPost.img} className="mt-2 w-full h-auto max-h-64 object-contain rounded-lg border" />}
-
                             </div>
-
-
 
                             {/* Datos Básicos */}
-
                             <div className="grid grid-cols-2 gap-3">
-
                                 <div><label className="block text-xs font-semibold text-gray-500 mb-1">Fecha</label><input type="date" className="w-full border rounded p-2 text-sm" value={newPost.fecha} onChange={e => setNewPost({...newPost, fecha: e.target.value})} /></div>
-
                                 <div>
-
                                     <label className="block text-xs font-semibold text-gray-500 mb-1">Red Social</label>
-
                                     <select className="w-full border rounded p-2 text-sm" value={newPost.red} onChange={e => setNewPost({...newPost, red: e.target.value})}>
-
                                         {REDES_SOCIALES.map(r => <option key={r} value={r}>{r}</option>)}
-
                                     </select>
-
                                 </div>
-
                             </div>
-
-
 
                             {/* Título */}
-
                             <div><label className="block text-xs font-semibold text-gray-500 mb-1">Título / Copy</label><input type="text" className="w-full border rounded p-2 text-sm" value={newPost.titulo} onChange={e => setNewPost({...newPost, titulo: e.target.value})} placeholder="Ej: 5 Tips para..." /></div>
 
-
-
                             {/* Combinaciones Facultad / Unidad */}
-
                             <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
-
                                 <h4 className="text-xs font-bold text-gray-400 uppercase mb-2">Clasificación Académica</h4>
-
                                 <div className="space-y-3">
-
                                     {/* SELECCIÓN DE TIPO DE FUENTE */}
-
                                     <div className="flex gap-4">
-
                                         <label className="flex items-center gap-2 text-sm cursor-pointer">
-
                                             <input 
-
                                                 type="radio" 
-
                                                 name="sourceType" 
-
                                                 checked={newPost.sourceType === 'facultad'} 
-
                                                 onChange={() => setNewPost({...newPost, sourceType: 'facultad', unidad: '', carrera: '', facultad: ''})}
-
                                                 className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-
                                             />
-
                                             <span className="font-medium text-gray-700">Por Facultad</span>
-
                                         </label>
-
                                         <label className="flex items-center gap-2 text-sm cursor-pointer">
-
                                             <input 
-
                                                 type="radio" 
-
                                                 name="sourceType" 
-
                                                 checked={newPost.sourceType === 'unidad'} 
-
                                                 onChange={() => setNewPost({...newPost, sourceType: 'unidad', facultad: '', carrera: '', unidad: ''})}
-
                                                 className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
-
                                             />
-
                                             <span className="font-medium text-gray-700">Por Unidad</span>
-
                                         </label>
-
                                     </div>
-
-
 
                                     {newPost.sourceType === 'facultad' && (
-
                                         <div className="space-y-3 animate-fade-in">
-
                                             <div>
-
                                                 <label className="block text-xs font-semibold text-gray-500 mb-1">Facultad</label>
-
                                                 <select 
-
                                                     className="w-full border rounded p-2 text-sm bg-white"
-
                                                     value={newPost.facultad}
-
                                                     onChange={(e) => setNewPost({...newPost, facultad: e.target.value, carrera: ''})}
-
                                                 >
-
                                                     <option value="">Selecciona Facultad...</option>
-
                                                     {Object.keys(FACULTADES_CARRERAS).map(f => <option key={f} value={f}>{f}</option>)}
-
                                                 </select>
-
                                             </div>
-
                                             <div>
-
                                                 <label className="block text-xs font-semibold text-gray-500 mb-1">Carrera</label>
-
                                                 <select 
-
                                                     className="w-full border rounded p-2 text-sm bg-white disabled:bg-gray-100 disabled:text-gray-400"
-
                                                     value={newPost.carrera}
-
                                                     onChange={(e) => setNewPost({...newPost, carrera: e.target.value})}
-
                                                     disabled={!newPost.facultad}
-
                                                 >
-
                                                     <option value="">{newPost.facultad ? "Selecciona Carrera..." : "Primero elige Facultad"}</option>
-
                                                     {availableCareersForm.map(c => <option key={c} value={c}>{c}</option>)}
-
                                                 </select>
-
                                             </div>
-
                                         </div>
-
                                     )}
-
-
 
                                     {newPost.sourceType === 'unidad' && (
-
                                         <div className="animate-fade-in">
-
                                             <label className="block text-xs font-semibold text-gray-500 mb-1">Unidad Especial</label>
-
                                             <select 
-
                                                 className="w-full border rounded p-2 text-sm bg-white"
-
                                                 value={newPost.unidad}
-
                                                 onChange={(e) => setNewPost({...newPost, unidad: e.target.value})}
-
                                             >
-
                                                 <option value="">Selecciona Unidad...</option>
-
                                                 {UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}
-
                                             </select>
-
                                         </div>
-
                                     )}
-
                                 </div>
-
                             </div>
-
-
 
                             {/* Clasificación Contenido */}
-
                             <div className="grid grid-cols-2 gap-3">
-
                                 <div>
-
                                     <label className="block text-xs font-semibold text-gray-500 mb-1">Tipo Publicación</label>
-
                                     <select className="w-full border rounded p-2 text-sm" value={newPost.tipoPub} onChange={e => setNewPost({...newPost, tipoPub: e.target.value})}>
-
                                         {TIPOS_PUBLICACION.map(t => <option key={t} value={t}>{t}</option>)}
-
                                     </select>
-
                                 </div>
-
                                 <div>
-
                                     <label className="block text-xs font-semibold text-gray-500 mb-1">Tipo Contenido</label>
-
                                     <select className="w-full border rounded p-2 text-sm" value={newPost.tipoCont} onChange={e => setNewPost({...newPost, tipoCont: e.target.value, coyunturaDetalle: ''})}>
-
                                         {TIPOS_CONTENIDO.map(t => <option key={t} value={t}>{t}</option>)}
-
                                     </select>
-
                                 </div>
-
                             </div>
-
-
 
                             {/* Campo condicional para Coyuntura */}
-
                             {newPost.tipoCont === "Días especiales Coyuntura" && (
-
                                 <div className="animate-fade-in bg-indigo-50 p-2 rounded border border-indigo-100 mt-2">
-
                                     <label className="block text-xs font-bold text-indigo-700 mb-1">¿Qué día especial es?</label>
-
                                     <input 
-
                                         type="text" 
-
                                         className="w-full border border-indigo-300 rounded p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
-
                                         placeholder="Ej: Día de la Madre, Fiestas Patrias..." 
-
                                         value={newPost.coyunturaDetalle} 
-
                                         onChange={e => setNewPost({...newPost, coyunturaDetalle: e.target.value})}
-
                                         autoFocus
-
                                     />
-
                                 </div>
-
                             )}
 
-
-
-                            <button onClick={handleSavePost} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">Publicar</button>
-
+                            <button onClick={handleSavePost} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition">
+                                {isEditingPost ? "Actualizar Publicación" : "Publicar"}
+                            </button>
                         </div>
-
                     </Modal>
 
-
-
+                    {/* MODAL DETALLE EVENTO */}
                     <Modal isOpen={isViewEventOpen} onClose={() => setIsViewEventOpen(false)} title="Detalle">
-
                         {selectedEvent && (
-
                             <div className="space-y-4">
-
                                 <div className="mb-2"><StatusBadge type={selectedEvent.tipo} color={selectedEvent.color} /></div>
-
                                 <h2 className="text-xl font-bold text-gray-900">{selectedEvent.titulo}</h2>
-
                                 <div className="p-3 rounded-lg flex gap-3 text-sm items-center" style={{ backgroundColor: selectedEvent.color?.bg || '#f3f4f6', color: selectedEvent.color?.text || '#333' }}><Clock size={16} /><span>Del <strong>{selectedEvent.fechaInicio}</strong> al <strong>{selectedEvent.fechaFin}</strong></span></div>
-
                                 
-
                                 {selectedEvent.tipo === 'Admisión' && selectedEvent.admision && (
-
                                     <div className="bg-gray-50 rounded-lg p-3 border border-gray-100 space-y-2 text-sm">
-
                                         <h4 className="font-bold text-gray-700 border-b border-gray-200 pb-1 mb-2">Cronograma</h4>
-
                                         <div className="flex items-start gap-2"><FileText size={16} className="text-gray-400 mt-0.5"/><div><span className="font-semibold text-gray-600 block">Inscripciones:</span><span className="text-gray-800">{selectedEvent.admision.inscripcionInicio || '-'} al {selectedEvent.admision.inscripcionFin || '-'}</span></div></div>
-
                                         <div className="flex items-center gap-2"><CreditCard size={16} className="text-gray-400"/><span className="font-semibold text-gray-600">Último Pago:</span><span className="text-gray-800">{selectedEvent.admision.ultimoPago || '-'}</span></div>
-
                                         <div className="flex items-center gap-2"><Edit size={16} className="text-gray-400"/><span className="font-semibold text-gray-600">Evaluación:</span><span className="text-gray-800">{selectedEvent.admision.evaluacion || '-'}</span></div>
-
                                         <div className="flex items-center gap-2"><UserCheck size={16} className="text-gray-400"/><span className="font-semibold text-gray-600">Resultados:</span><span className="text-gray-800">{selectedEvent.admision.resultados || '-'}</span></div>
-
                                     </div>
-
                                 )}
 
-
-
                                 {selectedEvent.linkRegistro && <a href={selectedEvent.linkRegistro} target="_blank" className="flex items-center justify-center gap-2 w-full py-3 bg-gray-900 text-white rounded-lg text-sm font-bold hover:bg-gray-700 transition shadow-lg shadow-gray-200"><LinkIcon size={16}/> Ir al Registro</a>}
-
                                 <div className="flex gap-2 pt-2"><button onClick={initiateDelete} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={20}/></button><button onClick={() => setIsViewEventOpen(false)} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50 transition">Cerrar</button><button onClick={handleEditBtnClick} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2"><Edit size={16}/> Editar</button></div>
-
                                 {isDeleting && <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center mt-2"><p className="text-sm text-red-600 mb-2 font-bold">¿Eliminar evento?</p><div className="flex gap-2 justify-center"><button onClick={cancelDelete} className="px-3 py-1 bg-white border rounded text-xs">No</button><button onClick={confirmDeleteEvent} className="px-3 py-1 bg-red-600 text-white rounded text-xs">Sí</button></div></div>}
-
                             </div>
-
                         )}
+                    </Modal>
 
+                    {/* MODAL DETALLE POST (NUEVO) */}
+                    <Modal isOpen={isViewPostOpen} onClose={() => setIsViewPostOpen(false)} title="Detalle de Publicación">
+                        {selectedPost && (
+                            <div className="space-y-4">
+                                <div className="bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
+                                    <img src={selectedPost.img} alt={selectedPost.titulo} className="w-full h-auto max-h-64 object-contain" />
+                                </div>
+                                
+                                <div>
+                                    <div className="flex gap-2 mb-1">
+                                        <span className="px-2 py-0.5 bg-gray-100 border text-gray-600 text-[10px] rounded uppercase font-bold tracking-wider">{selectedPost.red}</span>
+                                        <span className="px-2 py-0.5 bg-gray-100 border text-gray-600 text-[10px] rounded uppercase font-bold tracking-wider">{selectedPost.tipoPub}</span>
+                                    </div>
+                                    <h2 className="text-xl font-bold text-gray-900 leading-tight">{selectedPost.titulo}</h2>
+                                    <p className="text-xs text-gray-500 mt-1">{selectedPost.fecha}</p>
+                                </div>
+
+                                <div className="bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm space-y-1">
+                                    {selectedPost.facultad && <div className="flex gap-2"><span className="font-semibold text-gray-600 w-20">Facultad:</span><span className="text-gray-800">{selectedPost.facultad}</span></div>}
+                                    {selectedPost.carrera && <div className="flex gap-2"><span className="font-semibold text-gray-600 w-20">Carrera:</span><span className="text-gray-800">{selectedPost.carrera}</span></div>}
+                                    {selectedPost.unidad && <div className="flex gap-2"><span className="font-semibold text-gray-600 w-20">Unidad:</span><span className="text-gray-800">{selectedPost.unidad}</span></div>}
+                                    <div className="flex gap-2"><span className="font-semibold text-gray-600 w-20">Contenido:</span><span className="text-gray-800">{selectedPost.tipoCont}</span></div>
+                                </div>
+
+                                <div className="flex gap-2 pt-2">
+                                    <button onClick={initiateDeletePost} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"><Trash2 size={20}/></button>
+                                    <button onClick={() => setIsViewPostOpen(false)} className="flex-1 bg-white border border-gray-300 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-50 transition">Cerrar</button>
+                                    <button onClick={handleEditPostBtnClick} className="flex-1 bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 transition flex items-center justify-center gap-2"><Edit size={16}/> Editar</button>
+                                </div>
+
+                                {isDeletingPost && (
+                                    <div className="bg-red-50 p-4 rounded-xl border border-red-100 text-center mt-2 animate-fade-in">
+                                        <p className="text-sm text-red-600 mb-2 font-bold">¿Eliminar publicación?</p>
+                                        <div className="flex gap-2 justify-center">
+                                            <button onClick={cancelDeletePost} className="px-3 py-1 bg-white border rounded text-xs hover:bg-gray-50">No</button>
+                                            <button onClick={confirmDeletePost} className="px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700">Sí, eliminar</button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </Modal>
 
                 </div>
-
             );
-
         };
 
-
-
         const root = ReactDOM.createRoot(document.getElementById('root'));
-
         root.render(<App />);
-
     </script>
-
 </body>
-
 </html>
