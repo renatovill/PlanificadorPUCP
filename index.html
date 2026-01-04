@@ -54,6 +54,14 @@
             background-color: #4f46e5;
             border-color: #4f46e5;
         }
+        
+        /* Loading Overlay */
+        .loading-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(255,255,255,0.8); z-index: 100;
+            display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(5px);
+        }
     </style>
 </head>
 <body>
@@ -62,6 +70,10 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
         
+        // --- CONFIGURACIÓN DE CONEXIÓN ---
+        // ⚠️ REEMPLAZA ESTO CON LA URL QUE OBTUVISTE AL PUBLICAR EL APPS SCRIPT
+        const API_URL = "https://script.google.com/macros/s/AKfycbwEEE2BfAt3difdVBgNh3hljbsduNH33HaZG-Ks1x3txP2Ka1BkzMvVo6eWeyN0C296Jw/exec"; 
+
         // --- DEFINICIÓN DE ICONOS (SVG INLINE) ---
         const Icon = ({ children, size = 24, className = "" }) => (
             <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -84,6 +96,7 @@
         const LinkIcon = (props) => <Icon {...props}><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></Icon>;
         const Trash2 = (props) => <Icon {...props}><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></Icon>;
         const AlertTriangle = (props) => <Icon {...props}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></Icon>;
+        const RefreshCw = (props) => <Icon {...props}><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></Icon>;
         
         // Iconos de Sección
         const Megaphone = (props) => <Icon {...props}><path d="M3 11l18-5v12L3 14v-3z" /><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" /></Icon>;
@@ -95,7 +108,6 @@
         const UserCheck = (props) => <Icon {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="8.5" cy="7" r="4"></circle><polyline points="17 11 19 13 23 9"></polyline></Icon>;
         const FilterIcon = (props) => <Icon {...props}><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></Icon>;
         const Globe = (props) => <Icon {...props}><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></Icon>;
-        const TrendingUp = (props) => <Icon {...props}><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></Icon>;
 
 
         // --- PALETA DE COLORES ---
@@ -240,109 +252,97 @@
 
         const App = () => {
             const [view, setView] = useState('campaigns'); 
-            const [data, setData] = useState(INITIAL_DATA);
+            const [data, setData] = useState({ eventos: [], posts: [] });
+            const [loading, setLoading] = useState(false);
             const [currentDate, setCurrentDate] = useState(new Date(2026, 2, 1)); 
             const [calendarView, setCalendarView] = useState('month'); 
 
-            // Filtros Galería (Multi-selección)
+            // Filtros Galería
             const [galleryFilters, setGalleryFilters] = useState({
-                redes: [], 
-                tiposPub: [],
-                tiposCont: [],
-                facultad: '',
-                unidad: '',
-                carrera: '',
-                year: '2026',
-                month: 'Todos',
-                day: ''
+                redes: [], tiposPub: [], tiposCont: [], facultad: '', unidad: '', carrera: '', year: '2026', month: 'Todos', day: ''
             });
 
-            // Modales
+            // Modales y Estados
             const [isAddEventOpen, setIsAddEventOpen] = useState(false);
             const [isViewEventOpen, setIsViewEventOpen] = useState(false);
             const [isAddPostOpen, setIsAddPostOpen] = useState(false);
-            const [isViewPostOpen, setIsViewPostOpen] = useState(false);
-            const [isEditing, setIsEditing] = useState(false);
-            const [isDeleting, setIsDeleting] = useState(false);
-            const [isEditingPost, setIsEditingPost] = useState(false);
-            const [isDeletingPost, setIsDeletingPost] = useState(false);
+            const [isViewPostOpen, setIsViewPostOpen] = useState(false); // Modal Detalle Post
+            const [isEditing, setIsEditing] = useState(false); // Para Eventos
+            const [isDeleting, setIsDeleting] = useState(false); // Para Eventos
+            const [isEditingPost, setIsEditingPost] = useState(false); // Para Posts
+            const [isDeletingPost, setIsDeletingPost] = useState(false); // Para Posts
             
-            // Estado para Nuevo Evento
-            const [newEvent, setNewEvent] = useState({ 
-                titulo: '', fechaInicio: '', fechaFin: '', tipo: 'Campaña', desc: '', color: DEFAULT_COLOR, linkRegistro: '',
-                admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' }
-            });
+            const [newEvent, setNewEvent] = useState({ titulo: '', fechaInicio: '', fechaFin: '', tipo: 'Campaña', desc: '', color: DEFAULT_COLOR, linkRegistro: '', admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } });
             const [selectedEvent, setSelectedEvent] = useState(null);
+            const [newPost, setNewPost] = useState({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' });
+            const [selectedPost, setSelectedPost] = useState(null); // Post seleccionado para ver detalle
 
-            // Estado para Nueva/Editar Publicación (Galería)
-            const [newPost, setNewPost] = useState({
-                titulo: '', fecha: '', red: 'Instagram', 
-                sourceType: 'facultad', // 'facultad' o 'unidad'
-                facultad: '', carrera: '', unidad: '',
-                tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: ''
-            });
-            const [selectedPost, setSelectedPost] = useState(null);
+            // --- CARGA INICIAL DE DATOS ---
+            useEffect(() => {
+                if(API_URL.includes("PEGAR")) {
+                    setData(INITIAL_DATA); // Cargar datos mock si no hay API
+                    return; 
+                }
+                setLoading(true);
+                fetch(API_URL)
+                    .then(r => r.json())
+                    .then(d => {
+                        const parsedEventos = d.eventos.map(ev => ({
+                            ...ev,
+                            color: typeof ev.color === 'string' && ev.color.startsWith('{') ? JSON.parse(ev.color) : (COLORS.find(c=>c.id===ev.color)||DEFAULT_COLOR),
+                            admision: typeof ev.admision === 'string' ? JSON.parse(ev.admision) : ev.admision || {}
+                        }));
+                        setData({ eventos: parsedEventos, posts: d.posts });
+                        setLoading(false);
+                    })
+                    .catch(e => { console.error(e); setLoading(false); setData(INITIAL_DATA); }); // Fallback a mock data
+            }, []);
+
+            // --- ACCIONES DE GUARDADO (CONECTADAS A API) ---
+            const saveToApi = (action, item) => {
+                if(API_URL.includes("PEGAR")) return; // No hacer nada si no hay API
+                setLoading(true);
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action, data: item })
+                }).then(() => {
+                    setLoading(false);
+                });
+            };
+
+            const deleteFromApi = (action, id) => {
+                if(API_URL.includes("PEGAR")) return;
+                setLoading(true);
+                fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action, id })
+                }).then(() => setLoading(false));
+            };
 
             // --- UTILIDADES ---
             const formatDate = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
             const isDateInRange = (check, start, end) => check >= start && check <= end;
             const isSameDay = (d1, d2) => d1.getFullYear() === d2.getFullYear() && d1.getMonth() === d2.getMonth() && d1.getDate() === d2.getDate();
             const getDaysRemaining = (end) => Math.ceil((new Date(end) - new Date(currentDate)) / (1000 * 60 * 60 * 24));
-            const getProgress = (startStr, endStr) => {
-                const total = new Date(endStr) - new Date(startStr);
-                const current = new Date(currentDate) - new Date(startStr);
-                return total <= 0 ? 100 : Math.min(Math.max((current / total) * 100, 0), 100);
-            };
+            const getProgress = (startStr, endStr) => { const total = new Date(endStr) - new Date(startStr); const current = new Date(currentDate) - new Date(startStr); return total <= 0 ? 100 : Math.min(Math.max((current / total) * 100, 0), 100); };
+            const getTitleForView = () => { switch(view) { case 'campaigns': return 'Calendario de Campañas'; case 'social': return 'Calendario de Redes'; case 'events': return 'Calendario de Eventos'; case 'admission': return 'Calendario de Admisión'; case 'posts': return 'Galería de Publicaciones'; default: return 'Calendario'; } };
+            const getTypeForView = () => { switch(view) { case 'campaigns': return 'Campaña'; case 'social': return 'Redes'; case 'events': return 'Evento'; case 'admission': return 'Admisión'; default: return 'Todos'; } };
 
-            const getTitleForView = () => {
-                switch(view) {
-                    case 'campaigns': return 'Calendario de Campañas';
-                    case 'social': return 'Calendario de Redes';
-                    case 'events': return 'Calendario de Eventos';
-                    case 'admission': return 'Calendario de Admisión';
-                    case 'posts': return 'Galería de Publicaciones';
-                    default: return 'Calendario';
-                }
-            };
-
-            const getTypeForView = () => {
-                switch(view) {
-                    case 'campaigns': return 'Campaña';
-                    case 'social': return 'Redes';
-                    case 'events': return 'Evento';
-                    case 'admission': return 'Admisión';
-                    default: return 'Todos';
-                }
-            };
-
-            // --- LOGICA FILTROS GALERÍA ---
-            const toggleFilter = (category, value) => {
-                setGalleryFilters(prev => {
-                    const current = prev[category];
-                    const updated = current.includes(value) 
-                        ? current.filter(item => item !== value) 
-                        : [...current, value];
-                    return { ...prev, [category]: updated };
-                });
-            };
+            // --- FILTROS ---
+            const toggleFilter = (category, value) => { setGalleryFilters(prev => { const current = prev[category]; const updated = current.includes(value) ? current.filter(item => item !== value) : [...current, value]; return { ...prev, [category]: updated }; }); };
 
             const filteredPosts = useMemo(() => {
                 return data.posts.filter(post => {
-                    // Desglose seguro de la fecha
                     const [pYear, pMonth, pDay] = post.fecha.split('-').map(Number);
-
                     const matchYear = galleryFilters.year === 'Todos' || pYear.toString() === galleryFilters.year;
-                    const matchMonth = galleryFilters.month === 'Todos' || (pMonth).toString() === galleryFilters.month; 
+                    const matchMonth = galleryFilters.month === 'Todos' || (pMonth).toString() === galleryFilters.month;
                     const matchDay = galleryFilters.day === '' || pDay.toString() === galleryFilters.day;
-
                     const matchRed = galleryFilters.redes.length === 0 || galleryFilters.redes.includes(post.red);
                     const matchTipoPub = galleryFilters.tiposPub.length === 0 || galleryFilters.tiposPub.includes(post.tipoPub);
                     const matchTipoCont = galleryFilters.tiposCont.length === 0 || galleryFilters.tiposCont.includes(post.tipoCont);
-                    
                     const matchFacultad = galleryFilters.facultad === '' || post.facultad === galleryFilters.facultad;
                     const matchCarrera = galleryFilters.carrera === '' || post.carrera === galleryFilters.carrera;
                     const matchUnidad = galleryFilters.unidad === '' || post.unidad === galleryFilters.unidad;
-
                     return matchYear && matchMonth && matchDay && matchRed && matchTipoPub && matchTipoCont && matchFacultad && matchCarrera && matchUnidad;
                 });
             }, [data.posts, galleryFilters]);
@@ -357,89 +357,72 @@
             }, [filteredPosts]);
 
             const availableCareers = useMemo(() => galleryFilters.facultad ? (FACULTADES_CARRERAS[galleryFilters.facultad] || []) : [], [galleryFilters.facultad]);
-            // Carreras para el formulario de Nueva Publicación
             const availableCareersForm = useMemo(() => newPost.facultad ? (FACULTADES_CARRERAS[newPost.facultad] || []) : [], [newPost.facultad]);
 
+            // --- CALENDARIO DATA ---
+            const getFilteredEvents = () => { const targetType = getTypeForView(); if (targetType === 'Todos') return data.eventos; return data.eventos.filter(e => e.tipo === targetType); };
+            const monthGrid = useMemo(() => { const year = currentDate.getFullYear(); const month = currentDate.getMonth(); const daysInMonth = new Date(year, month + 1, 0).getDate(); const firstDayOfWeek = new Date(year, month, 1).getDay(); const eventsToShow = getFilteredEvents(); const grid = []; for (let i = 0; i < firstDayOfWeek; i++) grid.push(null); for (let i = 1; i <= daysInMonth; i++) { const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`; const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin)); grid.push({ day: i, dateStr, events: dayEvents, dayOfWeek: (firstDayOfWeek + i - 1) % 7 }); } return grid; }, [currentDate, data.eventos, view]);
+            const weekGrid = useMemo(() => { const startOfWeek = new Date(currentDate); const day = startOfWeek.getDay(); startOfWeek.setDate(currentDate.getDate() - day); const eventsToShow = getFilteredEvents(); const days = []; for (let i = 0; i < 7; i++) { const d = new Date(startOfWeek); d.setDate(startOfWeek.getDate() + i); const dateStr = formatDate(d); const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin)); days.push({ date: d, dateStr, events: dayEvents }); } return days; }, [currentDate, data.eventos, view]);
+            const dayEvents = useMemo(() => { const dateStr = formatDate(currentDate); const eventsToShow = getFilteredEvents(); return eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin)); }, [currentDate, data.eventos, view]);
+            const summaryItems = useMemo(() => { const todayStr = formatDate(currentDate); const targetType = getTypeForView(); if (view === 'campaigns') return data.eventos.filter(e => e.tipo === 'Campaña' && e.fechaFin >= todayStr).sort((a,b) => a.fechaFin.localeCompare(b.fechaFin)); return data.eventos.filter(e => e.tipo === targetType && e.fechaInicio >= todayStr).sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio)).slice(0, 5); }, [currentDate, data.eventos, view]);
 
-            // --- LOGICA CALENDARIO ---
-            const getFilteredEvents = () => {
-                const targetType = getTypeForView();
-                if (targetType === 'Todos') return data.eventos;
-                return data.eventos.filter(e => e.tipo === targetType);
-            };
-
-            const monthGrid = useMemo(() => {
-                const year = currentDate.getFullYear();
-                const month = currentDate.getMonth();
-                const daysInMonth = new Date(year, month + 1, 0).getDate();
-                const firstDayOfWeek = new Date(year, month, 1).getDay(); 
-                const eventsToShow = getFilteredEvents();
-                const grid = [];
-                for (let i = 0; i < firstDayOfWeek; i++) grid.push(null);
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-                    grid.push({ day: i, dateStr, events: dayEvents, dayOfWeek: (firstDayOfWeek + i - 1) % 7 });
-                }
-                return grid;
-            }, [currentDate, data.eventos, view]);
-
-            const weekGrid = useMemo(() => {
-                const startOfWeek = new Date(currentDate);
-                const day = startOfWeek.getDay();
-                startOfWeek.setDate(currentDate.getDate() - day);
-                const eventsToShow = getFilteredEvents();
-                const days = [];
-                for (let i = 0; i < 7; i++) {
-                    const d = new Date(startOfWeek);
-                    d.setDate(startOfWeek.getDate() + i);
-                    const dateStr = formatDate(d);
-                    const dayEvents = eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-                    days.push({ date: d, dateStr, events: dayEvents });
-                }
-                return days;
-            }, [currentDate, data.eventos, view]);
-
-            const dayEvents = useMemo(() => {
-                const dateStr = formatDate(currentDate);
-                const eventsToShow = getFilteredEvents();
-                return eventsToShow.filter(e => isDateInRange(dateStr, e.fechaInicio, e.fechaFin));
-            }, [currentDate, data.eventos, view]);
-
-            const summaryItems = useMemo(() => {
-                const todayStr = formatDate(currentDate);
-                const targetType = getTypeForView();
-                if (view === 'campaigns') return data.eventos.filter(e => e.tipo === 'Campaña' && e.fechaFin >= todayStr).sort((a,b) => a.fechaFin.localeCompare(b.fechaFin));
-                return data.eventos.filter(e => e.tipo === targetType && e.fechaInicio >= todayStr).sort((a,b) => a.fechaInicio.localeCompare(b.fechaInicio)).slice(0, 5);
-            }, [currentDate, data.eventos, view]);
-
-            // --- HANDLERS EVENTOS ---
+            // --- HANDLERS ---
             const handleSaveEvent = () => {
                 if(!newEvent.fechaInicio) return;
                 const nextId = isEditing ? newEvent.id : (data.eventos.length > 0 ? Math.max(...data.eventos.map(e => e.id)) + 1 : 1);
                 const finalEvent = { ...newEvent, fechaFin: newEvent.fechaFin || newEvent.fechaInicio, id: nextId };
+                
                 if (isEditing) setData(prev => ({ ...prev, eventos: prev.eventos.map(ev => ev.id === finalEvent.id ? finalEvent : ev) }));
                 else setData(prev => ({ ...prev, eventos: [...prev.eventos, finalEvent] }));
+                
+                saveToApi('saveEvent', finalEvent); // Guardar en BD
                 setIsAddEventOpen(false); setIsEditing(false);
                 setNewEvent({ titulo: '', fechaInicio: '', fechaFin: '', tipo: getTypeForView(), desc: '', color: DEFAULT_COLOR, linkRegistro: '', admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } });
             };
 
+            const confirmDeleteEvent = () => { 
+                if (selectedEvent) { 
+                    setData(prev => ({...prev, eventos: prev.eventos.filter(ev => ev.id !== selectedEvent.id)}));
+                    deleteFromApi('deleteEvent', selectedEvent.id); // Borrar en BD
+                    setIsViewEventOpen(false); setIsDeleting(false); 
+                }
+            };
+
+            const handleSavePost = () => {
+                if(!newPost.titulo || !newPost.img) return alert("Completa los datos");
+                let finalTipoCont = newPost.tipoCont;
+                if(newPost.tipoCont === "Días especiales Coyuntura" && newPost.coyunturaDetalle) finalTipoCont = `${newPost.tipoCont}: ${newPost.coyunturaDetalle}`;
+                
+                const nextId = isEditingPost ? newPost.id : (data.posts.length > 0 ? Math.max(...data.posts.map(p => p.id)) + 1 : 101);
+                const finalPost = { ...newPost, tipoCont: finalTipoCont, id: nextId, fecha: newPost.fecha || formatDate(new Date()) };
+                
+                if (isEditingPost) setData(prev => ({ ...prev, posts: prev.posts.map(p => p.id === finalPost.id ? finalPost : p) }));
+                else setData(prev => ({ ...prev, posts: [...prev.posts, finalPost] }));
+                
+                saveToApi('savePost', finalPost); // Guardar en BD
+                setIsAddPostOpen(false); setIsEditingPost(false);
+                setNewPost({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' });
+            };
+
+            const confirmDeletePost = () => { 
+                if (selectedPost) {
+                    setData(prev => ({ ...prev, posts: prev.posts.filter(p => p.id !== selectedPost.id) }));
+                    deleteFromApi('deletePost', selectedPost.id); // Borrar en BD
+                    setIsViewPostOpen(false); setIsDeletingPost(false); setSelectedPost(null); 
+                }
+            };
+
+            // Wrappers de UI handlers
             const initiateDelete = () => { setIsDeleting(true); };
-            const confirmDeleteEvent = () => { if (selectedEvent) { setData(prev => ({...prev, eventos: prev.eventos.filter(ev => ev.id !== selectedEvent.id)})); setIsViewEventOpen(false); setIsDeleting(false); }};
             const cancelDelete = () => { setIsDeleting(false); };
             const handleEditBtnClick = () => { if (selectedEvent) { setNewEvent({ ...selectedEvent, admision: selectedEvent.admision || { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } }); setIsEditing(true); setIsViewEventOpen(false); setIsAddEventOpen(true); }};
             const handleOpenAddModal = (initialDate = '') => { setIsEditing(false); const currentType = getTypeForView(); setNewEvent({ titulo: '', fechaInicio: initialDate, fechaFin: initialDate, tipo: currentType === 'Todos' ? 'Evento' : currentType, desc: '', color: DEFAULT_COLOR, linkRegistro: '', admision: { inscripcionInicio: '', inscripcionFin: '', ultimoPago: '', evaluacion: '', resultados: '' } }); setIsAddEventOpen(true); };
             const handleEventClick = (e, event) => { e.stopPropagation(); setSelectedEvent(event); setIsDeleting(false); setIsViewEventOpen(true); };
-
-            // --- HANDLERS POSTS ---
             const handlePostClick = (post) => { setSelectedPost(post); setIsDeletingPost(false); setIsViewPostOpen(true); };
             const handleOpenAddPostModal = () => { setIsEditingPost(false); setNewPost({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' }); setIsAddPostOpen(true); };
             const handleEditPostBtnClick = () => { if (!selectedPost) return; let tipoCont = selectedPost.tipoCont; let coyunturaDetalle = ''; if (tipoCont && tipoCont.startsWith("Días especiales Coyuntura: ")) { coyunturaDetalle = tipoCont.replace("Días especiales Coyuntura: ", ""); tipoCont = "Días especiales Coyuntura"; } setNewPost({ ...selectedPost, sourceType: selectedPost.unidad ? 'unidad' : 'facultad', tipoCont: tipoCont, coyunturaDetalle: coyunturaDetalle }); setIsEditingPost(true); setIsViewPostOpen(false); setIsAddPostOpen(true); };
             const initiateDeletePost = () => { setIsDeletingPost(true); };
             const cancelDeletePost = () => { setIsDeletingPost(false); };
-            const confirmDeletePost = () => { if (!selectedPost) return; setData(prev => ({ ...prev, posts: prev.posts.filter(p => p.id !== selectedPost.id) })); setIsViewPostOpen(false); setIsDeletingPost(false); setSelectedPost(null); };
-            const handleSavePost = () => { if(!newPost.titulo || !newPost.img) return alert("Completa los datos"); let finalTipoCont = newPost.tipoCont; if(newPost.tipoCont === "Días especiales Coyuntura" && newPost.coyunturaDetalle) { finalTipoCont = `${newPost.tipoCont}: ${newPost.coyunturaDetalle}`; } const nextId = isEditingPost ? newPost.id : (data.posts.length > 0 ? Math.max(...data.posts.map(p => p.id)) + 1 : 101); const finalPost = { ...newPost, tipoCont: finalTipoCont, id: nextId, fecha: newPost.fecha || formatDate(new Date()) }; if (isEditingPost) { setData(prev => ({ ...prev, posts: prev.posts.map(p => p.id === finalPost.id ? finalPost : p) })); } else { setData(prev => ({ ...prev, posts: [...prev.posts, finalPost] })); } setIsAddPostOpen(false); setIsEditingPost(false); setNewPost({ titulo: '', fecha: '', red: 'Instagram', sourceType: 'facultad', facultad: '', carrera: '', unidad: '', tipoPub: 'Post', tipoCont: TIPOS_CONTENIDO[0], coyunturaDetalle: '', img: '', link: '' }); };
-
             const changeTime = (offset) => { const newDate = new Date(currentDate); if (calendarView === 'month') newDate.setMonth(newDate.getMonth() + offset); else newDate.setDate(newDate.getDate() + offset); setCurrentDate(newDate); };
 
             const renderCalendarView = () => {
@@ -452,6 +435,9 @@
 
             return (
                 <div className="flex h-screen overflow-hidden">
+                    {/* LOADING OVERLAY */}
+                    {loading && <div className="loading-overlay"><div className="flex flex-col items-center"><RefreshCw size={48} className="text-indigo-600 animate-spin"/><p className="mt-4 font-bold text-gray-600">Sincronizando con Google Sheets...</p></div></div>}
+
                     {/* SIDEBAR */}
                     <aside className="w-72 bg-white border-r border-gray-200 flex flex-col z-20 shadow-xl overflow-y-auto">
                         <div className="p-6">
@@ -476,48 +462,31 @@
                         {/* FILTROS DE GALERÍA */}
                         {view === 'posts' && (
                             <div className="p-4 border-t border-gray-100 bg-gray-50 space-y-5 text-sm">
-                                <div className="flex items-center gap-2 font-bold text-gray-700 border-b pb-2">
-                                    <FilterIcon size={16}/> Filtros Galería
-                                </div>
-
-                                {/* FILTROS DE FECHA */}
+                                {/* ... filtros sin cambios ... */}
+                                <div className="flex items-center gap-2 font-bold text-gray-700 border-b pb-2"><FilterIcon size={16}/> Filtros Galería</div>
+                                {/* Fecha */}
                                 <div>
                                     <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Fecha</h4>
                                     <div className="space-y-2">
                                         <select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.year} onChange={(e) => setGalleryFilters({...galleryFilters, year: e.target.value})}>
-                                            <option value="Todos">Año: Todos</option>
-                                            <option value="2024">2024</option>
-                                            <option value="2025">2025</option>
-                                            <option value="2026">2026</option>
-                                            <option value="2027">2027</option>
+                                            <option value="Todos">Año: Todos</option><option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option>
                                         </select>
                                         <div className="flex gap-2">
                                             <select className="w-2/3 border rounded p-1.5 bg-white text-xs" value={galleryFilters.month} onChange={(e) => setGalleryFilters({...galleryFilters, month: e.target.value})}>
-                                                <option value="Todos">Mes</option>
-                                                {MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
+                                                <option value="Todos">Mes</option>{MESES.map((m, i) => <option key={i} value={i+1}>{m}</option>)}
                                             </select>
                                             <select className="w-1/3 border rounded p-1.5 bg-white text-xs" value={galleryFilters.day} onChange={(e) => setGalleryFilters({...galleryFilters, day: e.target.value})}>
-                                                <option value="">Día</option>
-                                                {Array.from({length:31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
+                                                <option value="">Día</option>{Array.from({length:31}, (_, i) => i + 1).map(d => <option key={d} value={d}>{d}</option>)}
                                             </select>
                                         </div>
                                     </div>
                                 </div>
-
+                                {/* Resto filtros */}
                                 <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Red Social</h4><div className="space-y-1">{REDES_SOCIALES.map(red => <FilterCheckbox key={red} label={red} checked={galleryFilters.redes.includes(red)} onChange={() => toggleFilter('redes', red)} />)}</div></div>
                                 <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Tipo Publicación</h4><div className="space-y-1">{TIPOS_PUBLICACION.map(tipo => <FilterCheckbox key={tipo} label={tipo} checked={galleryFilters.tiposPub.includes(tipo)} onChange={() => toggleFilter('tiposPub', tipo)} />)}</div></div>
-                                <div>
-                                    <h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Tipo Contenido</h4>
-                                    <div className="space-y-1 max-h-40 overflow-y-auto border border-gray-100 rounded p-1">
-                                        {TIPOS_CONTENIDO.map(tipo => <FilterCheckbox key={tipo} label={tipo} checked={galleryFilters.tiposCont.includes(tipo)} onChange={() => toggleFilter('tiposCont', tipo)} />)}
-                                    </div>
-                                </div>
-                                <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Académico / Unidad</h4><div className="space-y-2"><select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.facultad} onChange={(e) => setGalleryFilters({...galleryFilters, facultad: e.target.value, unidad: '', carrera: ''})}>
-                                    <option value="">Todas</option>{Object.keys(FACULTADES_CARRERAS).map(f => <option key={f} value={f}>{f}</option>)}
-                                </select><select className="w-full border rounded p-1.5 bg-white text-xs disabled:bg-gray-100 disabled:text-gray-400" value={galleryFilters.carrera} onChange={(e) => setGalleryFilters({...galleryFilters, carrera: e.target.value})} disabled={!galleryFilters.facultad}><option value="">Carrera</option>{availableCareers.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
-                                
+                                <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Tipo Contenido</h4><div className="space-y-1 max-h-40 overflow-y-auto border border-gray-100 rounded p-1">{TIPOS_CONTENIDO.map(tipo => <FilterCheckbox key={tipo} label={tipo} checked={galleryFilters.tiposCont.includes(tipo)} onChange={() => toggleFilter('tiposCont', tipo)} />)}</div></div>
+                                <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Académico / Unidad</h4><div className="space-y-2"><select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.facultad} onChange={(e) => setGalleryFilters({...galleryFilters, facultad: e.target.value, unidad: '', carrera: ''})}><option value="">Todas</option>{Object.keys(FACULTADES_CARRERAS).map(f => <option key={f} value={f}>{f}</option>)}</select><select className="w-full border rounded p-1.5 bg-white text-xs disabled:bg-gray-100 disabled:text-gray-400" value={galleryFilters.carrera} onChange={(e) => setGalleryFilters({...galleryFilters, carrera: e.target.value})} disabled={!galleryFilters.facultad}><option value="">Carrera</option>{availableCareers.map(c => <option key={c} value={c}>{c}</option>)}</select></div></div>
                                 <div><h4 className="font-semibold text-gray-600 mb-2 text-xs uppercase">Filtrar por Unidad</h4><select className="w-full border rounded p-1.5 bg-white text-xs" value={galleryFilters.unidad} onChange={(e) => setGalleryFilters({...galleryFilters, unidad: e.target.value, facultad: '', carrera: ''})}><option value="">Todas las Unidades</option>{UNIDADES.map(u => <option key={u} value={u}>{u}</option>)}</select></div>
-
                                 <button onClick={() => setGalleryFilters({redes:[], tiposPub:[], tiposCont:[], facultad:'', unidad: '', carrera:'', year:'2026', month:'Todos', day:''})} className="text-xs text-indigo-600 hover:underline w-full text-center">Limpiar Filtros</button>
                             </div>
                         )}
@@ -525,21 +494,12 @@
 
                     {/* MAIN AREA */}
                     <main className="flex-1 overflow-y-auto relative">
+                        {/* Header */}
                         <header className="sticky top-0 z-10 glass-panel border-b border-gray-200 px-8 py-4 flex justify-between items-center">
-                            <div>
-                                <h1 className="text-2xl font-bold text-gray-800">{getTitleForView()}</h1>
-                                <p className="text-sm text-gray-500">{view === 'posts' ? 'Histórico visual con filtros avanzados' : `Gestiona tus ${view === 'campaigns' ? 'campañas' : view === 'social' ? 'publicaciones' : 'eventos'} del año`}</p>
-                            </div>
+                            <div><h1 className="text-2xl font-bold text-gray-800">{getTitleForView()}</h1><p className="text-sm text-gray-500">{view === 'posts' ? 'Histórico visual con filtros avanzados' : `Gestiona tus ${view === 'campaigns' ? 'campañas' : view === 'social' ? 'publicaciones' : 'eventos'} del año`}</p></div>
                             <div className="flex gap-3">
-                                {view !== 'posts' && (
-                                    <div className="flex bg-gray-100 p-1 rounded-lg">
-                                        <button onClick={() => setCalendarView('month')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'month' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Mes</button>
-                                        <button onClick={() => setCalendarView('week')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'week' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Semana</button>
-                                    </div>
-                                )}
-                                <button onClick={() => view !== 'posts' ? setIsAddEventOpen(true) : handleOpenAddPostModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-semibold">
-                                    <Plus size={18} /> {view !== 'posts' ? 'Agregar' : 'Nueva Publicación'}
-                                </button>
+                                {view !== 'posts' && (<div className="flex bg-gray-100 p-1 rounded-lg"><button onClick={() => setCalendarView('month')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'month' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Mes</button><button onClick={() => setCalendarView('week')} className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all ${calendarView === 'week' ? 'bg-white shadow text-gray-800' : 'text-gray-500 hover:text-gray-700'}`}>Semana</button></div>)}
+                                <button onClick={() => view !== 'posts' ? setIsAddEventOpen(true) : handleOpenAddPostModal()} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 text-sm font-semibold"><Plus size={18} /> {view !== 'posts' ? 'Agregar' : 'Nueva Publicación'}</button>
                             </div>
                         </header>
 
@@ -547,70 +507,22 @@
                         {view !== 'posts' ? (
                             <div className="p-8 fade-in">
                                 <div className="flex items-center justify-between mb-6">
-                                    <div className="flex items-center gap-4">
-                                        <button onClick={() => changeTime(-1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronLeft/></button>
-                                        <h2 className="text-xl font-bold text-gray-800 w-64 text-center">{calendarView === 'day' ? currentDate.toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</h2>
-                                        <button onClick={() => changeTime(1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronRight/></button>
-                                    </div>
+                                    <div className="flex items-center gap-4"><button onClick={() => changeTime(-1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronLeft/></button><h2 className="text-xl font-bold text-gray-800 w-64 text-center">{calendarView === 'day' ? currentDate.toLocaleString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' }) : currentDate.toLocaleString('es-ES', { month: 'long', year: 'numeric' }).toUpperCase()}</h2><button onClick={() => changeTime(1)} className="p-2 hover:bg-white hover:shadow rounded-full text-gray-600 transition"><ChevronRight/></button></div>
                                 </div>
                                 {renderCalendarView()}
-                                
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-10">
-                                    {view === 'campaigns' && (
-                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                                            <h3 className="font-bold text-lg text-gray-800 mb-4">🚀 Campañas Activas</h3>
-                                            <div className="space-y-4">
-                                                {summaryItems.length > 0 ? summaryItems.map(camp => (
-                                                    <div key={camp.id} className="border border-gray-100 rounded-xl p-4">
-                                                        <div className="flex justify-between items-start mb-2"><h4 className="font-bold text-gray-800">{camp.titulo}</h4><span className="text-indigo-600 font-bold">{getDaysRemaining(camp.fechaFin)} días</span></div>
-                                                        <div className="w-full bg-gray-100 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{width: `${getProgress(camp.fechaInicio, camp.fechaFin)}%`}}></div></div>
-                                                    </div>
-                                                )) : <div className="text-center text-gray-400 py-4">No hay campañas activas.</div>}
-                                            </div>
-                                        </div>
-                                    )}
-                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                                        <h3 className="font-bold text-lg text-gray-800 mb-4">📅 Próximos Eventos</h3>
-                                        <div className="space-y-3">
-                                            {summaryItems.length > 0 ? summaryItems.map(ev => (
-                                                <div key={ev.id} className="flex gap-4 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer" onClick={(e) => {e.stopPropagation(); setSelectedEvent(ev); setIsViewEventOpen(true);}}>
-                                                    <div className="font-bold text-gray-500 w-12 text-center">{new Date(ev.fechaInicio).getDate()} <br/><span className="text-[10px]">{new Date(ev.fechaInicio).toLocaleString('es-ES', {month:'short'}).toUpperCase()}</span></div>
-                                                    <div><h4 className="font-semibold text-gray-800 text-sm">{ev.titulo}</h4><p className="text-xs text-gray-500">{ev.tipo}</p></div>
-                                                </div>
-                                            )) : <div className="text-center text-gray-400 py-4">Nada próximo.</div>}
-                                        </div>
-                                    </div>
+                                    {view === 'campaigns' && (<div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200"><h3 className="font-bold text-lg text-gray-800 mb-4">🚀 Campañas Activas</h3><div className="space-y-4">{summaryItems.length > 0 ? summaryItems.map(camp => (<div key={camp.id} className="border border-gray-100 rounded-xl p-4"><div className="flex justify-between items-start mb-2"><h4 className="font-bold text-gray-800">{camp.titulo}</h4><span className="text-indigo-600 font-bold">{getDaysRemaining(camp.fechaFin)} días</span></div><div className="w-full bg-gray-100 rounded-full h-2"><div className="bg-indigo-600 h-2 rounded-full" style={{width: `${getProgress(camp.fechaInicio, camp.fechaFin)}%`}}></div></div></div>)) : <div className="text-center text-gray-400 py-4">No hay campañas activas.</div>}</div></div>)}
+                                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200"><h3 className="font-bold text-lg text-gray-800 mb-4">📅 Próximos Eventos</h3><div className="space-y-3">{summaryItems.length > 0 ? summaryItems.map(ev => (<div key={ev.id} className="flex gap-4 p-3 border rounded-xl hover:bg-gray-50 cursor-pointer" onClick={(e) => {e.stopPropagation(); setSelectedEvent(ev); setIsViewEventOpen(true);}}><div className="font-bold text-gray-500 w-12 text-center">{new Date(ev.fechaInicio).getDate()} <br/><span className="text-[10px]">{new Date(ev.fechaInicio).toLocaleString('es-ES', {month:'short'}).toUpperCase()}</span></div><div><h4 className="font-semibold text-gray-800 text-sm">{ev.titulo}</h4><p className="text-xs text-gray-500">{ev.tipo}</p></div></div>)) : <div className="text-center text-gray-400 py-4">Nada próximo.</div>}</div></div>
                                 </div>
                             </div>
                         ) : (
                             <div className="p-8 fade-in">
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                                    {filteredPosts.length > 0 ? filteredPosts.map(post => (
-                                        <div key={post.id} onClick={() => handlePostClick(post)} className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col cursor-pointer">
-                                            <div className="relative bg-gray-100 overflow-hidden">
-                                                <img src={post.img} alt={post.titulo} className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"/>
-                                                <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-bold shadow-sm">{post.red}</div>
-                                                <div className="absolute bottom-2 left-2 flex gap-1"><span className="bg-black/60 text-white px-2 py-0.5 rounded text-[10px] backdrop-blur-sm">{post.tipoPub}</span></div>
-                                            </div>
-                                            <div className="p-4 flex-1 flex flex-col">
-                                                <div className="flex flex-wrap gap-1 mb-2">
-                                                    {post.facultad && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100 truncate max-w-full">{post.facultad}</span>}
-                                                    {post.carrera && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] rounded border border-indigo-100 truncate max-w-full">{post.carrera}</span>}
-                                                    {post.unidad && <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100 truncate max-w-full">{post.unidad}</span>}
-                                                </div>
-                                                <h3 className="font-bold text-gray-800 leading-tight mb-1 text-sm">{post.titulo}</h3>
-                                                <div className="mt-auto pt-3 flex justify-between items-end border-t border-gray-50"><span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{post.tipoCont}</span><span className="text-xs text-gray-400">{post.fecha}</span></div>
-                                            </div>
-                                        </div>
-                                    )) : <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400"><Search size={48} className="mb-4 text-gray-200"/><p>No se encontraron publicaciones.</p></div>}
+                                    {filteredPosts.length > 0 ? filteredPosts.map(post => (<div key={post.id} onClick={() => handlePostClick(post)} className="bg-white rounded-xl overflow-hidden border border-gray-200 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 group flex flex-col cursor-pointer"><div className="relative bg-gray-100 overflow-hidden"><img src={post.img} alt={post.titulo} className="w-full h-auto object-contain group-hover:scale-105 transition-transform duration-500"/><div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded-md text-xs font-bold shadow-sm">{post.red}</div><div className="absolute bottom-2 left-2 flex gap-1"><span className="bg-black/60 text-white px-2 py-0.5 rounded text-[10px] backdrop-blur-sm">{post.tipoPub}</span></div></div><div className="p-4 flex-1 flex flex-col"><div className="flex flex-wrap gap-1 mb-2">{post.facultad && <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[10px] rounded border border-blue-100 truncate max-w-full">{post.facultad}</span>}{post.carrera && <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] rounded border border-indigo-100 truncate max-w-full">{post.carrera}</span>}{post.unidad && <span className="px-2 py-0.5 bg-green-50 text-green-700 text-[10px] rounded border border-green-100 truncate max-w-full">{post.unidad}</span>}</div><h3 className="font-bold text-gray-800 leading-tight mb-1 text-sm">{post.titulo}</h3><div className="mt-auto pt-3 flex justify-between items-end border-t border-gray-50"><span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-full">{post.tipoCont}</span><span className="text-xs text-gray-400">{post.fecha}</span></div></div></div>)) : <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400"><Search size={48} className="mb-4 text-gray-200"/><p>No se encontraron publicaciones.</p></div>}
                                 </div>
                                 <div className="mt-12 border-t border-gray-200 pt-8">
                                     <h3 className="text-lg font-bold text-gray-800 mb-4 px-1">Resumen de Métricas</h3>
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Total Publicaciones</p><p className="text-3xl font-bold text-indigo-600">{stats.total}</p></div><div className="bg-indigo-50 p-3 rounded-full text-indigo-600"><ImageIcon size={24} /></div></div>
-                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Foco Internacional</p><p className="text-3xl font-bold text-emerald-600">{stats.interCount}</p></div><div className="bg-emerald-50 p-3 rounded-full text-emerald-600"><Globe size={24} /></div></div>
-                                        <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"><p className="text-sm text-gray-500 font-medium uppercase mb-3">Top Carreras</p><div className="space-y-2">{stats.sortedCareers.length > 0 ? stats.sortedCareers.map((c, i) => <div key={i} className="flex justify-between items-center text-sm"><span className="text-gray-700 truncate w-4/5">{c.name}</span><span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-xs">{c.count}</span></div>) : <p className="text-xs text-gray-400">Sin datos suficientes</p>}</div></div>
-                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6"><div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Total Publicaciones</p><p className="text-3xl font-bold text-indigo-600">{stats.total}</p></div><div className="bg-indigo-50 p-3 rounded-full text-indigo-600"><ImageIcon size={24} /></div></div><div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center justify-between"><div><p className="text-sm text-gray-500 font-medium uppercase">Foco Internacional</p><p className="text-3xl font-bold text-emerald-600">{stats.interCount}</p></div><div className="bg-emerald-50 p-3 rounded-full text-emerald-600"><Globe size={24} /></div></div><div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm"><p className="text-sm text-gray-500 font-medium uppercase mb-3">Top Carreras</p><div className="space-y-2">{stats.sortedCareers.length > 0 ? stats.sortedCareers.map((c, i) => <div key={i} className="flex justify-between items-center text-sm"><span className="text-gray-700 truncate w-4/5">{c.name}</span><span className="font-bold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-xs">{c.count}</span></div>) : <p className="text-xs text-gray-400">Sin datos suficientes</p>}</div></div></div>
                                 </div>
                             </div>
                         )}
